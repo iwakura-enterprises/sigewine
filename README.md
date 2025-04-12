@@ -71,6 +71,7 @@ public class ComplexService {
     private final SomeDao dao;
     
     // Injects all beans that extend BaseEntity
+    @RomaritimeBean
     private final List<BaseEntity> entities = new TypedArrayList<>(BaseEntity.class);
     
     // Named bean injection
