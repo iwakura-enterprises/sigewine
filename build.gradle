@@ -1,0 +1,143 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'signing'
+    id 'maven-publish'
+    id "com.github.johnrengelman.shadow" version "8.1.1"
+    id "io.github.gradle-nexus.publish-plugin" version "1.1.0"
+    id 'jacoco'
+    id 'jacoco-report-aggregation'
+}
+
+group = 'enterprises.iwakura'
+version = '1.0-SNAPSHOT-01'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // https://mvnrepository.com/artifact/org.reflections/reflections/0.10.2
+    implementation 'org.reflections:reflections:0.10.2'
+    testImplementation 'org.reflections:reflections:0.10.2'
+
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api/2.0.17
+    implementation 'org.slf4j:slf4j-api:2.0.17'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
+    testCompileOnly 'org.projectlombok:lombok:1.18.38'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+
+    testImplementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.23.1'
+    testImplementation 'org.apache.logging.log4j:log4j-core:2.23.1'
+}
+
+// == Quick tasks == //
+
+task publishCloseAndRelease() {
+    dependsOn 'publishToSonatype'
+    dependsOn 'closeAndReleaseSonatypeStagingRepository'
+}
+
+shadowJar {
+}
+
+test {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+// UTF-8
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+// == Maven publishing == //
+
+publishing {
+
+    publications {
+        shadow(MavenPublication) {
+            groupId = 'enterprises.iwakura'
+            artifactId = 'sigewine'
+            version = getVersion()
+            from components.java
+
+            pom {
+                name = 'Sigewine'
+                description = 'Simple & lightweight runtime dependency injection library for Java'
+                url = 'https://github.com/iwakura-enterprises/sigewine'
+
+                scm {
+                    connection = 'scm:https://github.com/iwakura-enterprises/sigewine'
+                    developerConnection = 'scm:git:https://github.com/iwakura-enterprises/sigewine.git'
+                    url = 'https://github.com/iwakura-enterprises/sigewine'
+                }
+
+                licenses {
+                    license {
+                        name = 'The MIT License'
+                        url = 'https://opensource.org/license/mit'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'mayuna'
+                        name = 'Marek Lof'
+                        email = 'uwulilmayu@gmail.com'
+                    }
+                }
+            }
+        }
+    }
+
+    publishing {
+        repositories {
+            maven {
+                credentials {
+                    username = project.properties['ossrhUsername'] ?: System.getenv('ossrhUsername')
+                    password = project.properties['ossrhPassword'] ?: System.getenv('ossrhPassword')
+                }
+
+                url = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = findProperty("signingKey")
+    def signingPassword = findProperty("signingPassword")
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    sign publishing.publications.shadow
+}
+
+nexusPublishing {
+    repositories {
+        sonatype {
+            nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
+            username = project.properties['ossrhUsername'] ?: System.getenv('ossrhUsername')
+            password = project.properties['ossrhPassword'] ?: System.getenv('ossrhPassword')
+        }
+    }
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+shadowJar.dependsOn javadocJar
+shadowJar.dependsOn sourcesJar
+shadowJar.dependsOn jar
+
+components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) {
+    skip()
+}
