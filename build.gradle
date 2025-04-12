@@ -52,6 +52,12 @@ test {
     finalizedBy jacocoTestReport
 }
 
+jacocoTestReport {
+    reports {
+        csv.required.set(true)
+    }
+}
+
 // UTF-8
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
