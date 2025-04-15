@@ -29,7 +29,18 @@ implementation 'enterprises.iwakura:sigewine:1.0.0'
 ## Usage
 ### Specifying beans
 ```java
+// Annotate with @RomaritimeBean if config class holds any other beans
+@RomaritimeBean
 public class Config {
+    
+    // Class must be annotated with @RomaritimeBean if you want
+    // this bean to be injected
+    private final SomeOtherBean someOtherBean;
+    
+    public Config(@RomaritimeBean SomeOtherBean someOtherBean) {
+        this.someOtherBean = someOtherBean;
+    }
+    
     @RomaritimeBean
     public SomeService someService() {
         return new SomeService();
