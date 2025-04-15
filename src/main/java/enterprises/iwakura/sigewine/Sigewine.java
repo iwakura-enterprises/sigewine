@@ -42,6 +42,8 @@ public class Sigewine {
      */
     protected final Map<String, Object> beans = new HashMap<>();
 
+    protected final List<Class<?>> initializeLaterMethodBeans = new ArrayList<>();
+
     /**
      * Cache for method bean declaring classes.
      */
@@ -93,6 +95,21 @@ public class Sigewine {
         log.atLevel(sigewineOptions.getLogLevel()).log("Registering methods annotated with @Romaritime");
         for (Method method : annotatedMethods) {
             registerMethodBean(method);
+        }
+
+        // Initialize method beans that were not initialized yet
+        log.atLevel(sigewineOptions.getLogLevel()).log("Initializing later-initialization method beans");
+        for (Class<?> clazz : initializeLaterMethodBeans) {
+            log.atLevel(sigewineOptions.getLogLevel()).log("Initializing method beans for class '{}'", clazz.getName());
+            registerClassBean(clazz, false);
+
+            log.atLevel(sigewineOptions.getLogLevel()).log("Going through methods of class '{}'", clazz.getName());
+            final var beanMethods = clazz.getDeclaredMethods();
+            for (Method beanMethod : beanMethods) {
+                if (beanMethod.isAnnotationPresent(RomaritimeBean.class)) {
+                    registerMethodBean(beanMethod);
+                }
+            }
         }
 
         // Register class beans
@@ -242,7 +259,6 @@ public class Sigewine {
         final var declaringClass = method.getDeclaringClass();
         final var returnType = method.getReturnType();
 
-        Preconditions.checkNoArgConstructor(declaringClass);
         Preconditions.checkNoVoidReturnType(method);
         Preconditions.checkNoPrimitiveReturnType(method);
 
@@ -254,21 +270,40 @@ public class Sigewine {
             throw new IllegalArgumentException("Class " + returnType.getName() + " already registered as " + beanName);
         }
 
-        final var beanClassInstance = methodBeanDeclaringClassCache.computeIfAbsent(declaringClass, c -> {
-                                                                                        try {
-                                                                                            return c.getConstructor().newInstance();
-                                                                                        } catch (Exception exception) {
-                                                                                            throw new RuntimeException("Failed to create instance of " + c.getName() + " for bean " + beanName + " (nos no-args constructor?)", exception);
-                                                                                        }
-                                                                                    }
-        );
-        final var beanInstance = method.invoke(beanClassInstance);
+        final var beanClassInstance = methodBeanDeclaringClassCache.computeIfAbsent(declaringClass, clazz -> {
+            boolean hasNoArgConstructor = Arrays.stream(clazz.getConstructors()).anyMatch(constructor -> constructor.getParameterCount() == 0);
 
-        if (beanInstance == null) {
-            throw new IllegalArgumentException("Method " + method + " cannot return null");
+            if (hasNoArgConstructor) {
+                try {
+                    return clazz.getConstructor().newInstance();
+                } catch (Exception exception) {
+                    throw new RuntimeException("Failed to create instance of " + clazz.getName() + " for bean " + beanName + " (nos no-args constructor?)", exception);
+                }
+            }
+
+            try {
+                // Check if the class already has a bean, if yes, return
+                return syringeInternal(clazz, (otherClass) -> {
+                    throw new IllegalStateException();
+                });
+            } catch (IllegalStateException ignored) {
+                // Catch the exception and return null
+                log.atLevel(sigewineOptions.getLogLevel()).log("Class '{}' has no no-args constructor, will be initialized later", clazz.getName());
+                initializeLaterMethodBeans.add(clazz);
+                return null;
+            }
+        });
+
+        // In case of later initialization, we will not register the bean yet
+        if (beanClassInstance != null) {
+            final var beanInstance = method.invoke(beanClassInstance);
+
+            if (beanInstance == null) {
+                throw new IllegalArgumentException("Method " + method + " cannot return null");
+            }
+
+            registerBeanWithInstance(returnType, beanName, beanInstance);
         }
-
-        registerBeanWithInstance(returnType, beanName, beanInstance);
     }
 
     /**
@@ -361,7 +396,7 @@ public class Sigewine {
      * @return Bean name
      */
     protected String getBeanName(RomaritimeBean romaritimeBean, String defaultName) {
-        if (!romaritimeBean.name().isBlank()) {
+        if (romaritimeBean != null && !romaritimeBean.name().isBlank()) {
             return romaritimeBean.name();
         }
 
