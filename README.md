@@ -114,3 +114,4 @@ SomeService service = sigewine.syringe(SomeService.class);
 ## Disclaimers
 - Cyclic dependencies are not supported.
 - No lazy loading.
+- All beans are singleton, for now.
