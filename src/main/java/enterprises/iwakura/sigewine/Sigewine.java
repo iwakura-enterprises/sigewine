@@ -42,6 +42,9 @@ public class Sigewine {
      */
     protected final Map<String, Object> beans = new HashMap<>();
 
+    /**
+     * List of classes that have method beans that need to be initialized later.
+     */
     protected final List<Class<?>> initializeLaterMethodBeans = new ArrayList<>();
 
     /**
@@ -80,7 +83,7 @@ public class Sigewine {
      * @param packageName The package name to scan.
      */
     @SneakyThrows
-    public void treatment(String packageName) {
+    public synchronized void treatment(String packageName) {
         log.atLevel(sigewineOptions.getLogLevel()).log("Scanning package '{}' for classes annotated with @Romaritime", packageName);
 
         // Construct Reflections object
@@ -111,6 +114,7 @@ public class Sigewine {
                 }
             }
         }
+        initializeLaterMethodBeans.clear();
 
         // Register class beans
         log.atLevel(sigewineOptions.getLogLevel()).log("Registering classes annotated with @Romaritime");
