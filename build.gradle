@@ -7,7 +7,7 @@ plugins {
     id 'jacoco'
     id 'jacoco-report-aggregation'
 
-    id "tech.medivh.plugin.publisher" version "1.2.1"
+    id "tech.medivh.plugin.publisher" version "1.2.2"
 }
 
 group = 'enterprises.iwakura'
@@ -105,6 +105,14 @@ publishing {
             }
         }
     }
+}
+
+signing {
+    useInMemoryPgpKeys(
+            System.getenv("GPG_KEY_ID"),
+            System.getenv("GPG_PRIVATE_KEY"),
+            System.getenv("GPG_PASSWORD")
+    )
 }
 
 java {
