@@ -8,6 +8,9 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
 import org.reflections.scanners.Scanners;
+import org.reflections.util.ClasspathHelper;
+import org.reflections.util.ConfigurationBuilder;
+import org.reflections.util.FilterBuilder;
 
 import java.lang.reflect.Method;
 import java.util.*;
@@ -24,7 +27,7 @@ import java.util.function.Function;
  * <ol>
  *   <li>Create an instance of {@link SigewineOptions} to configure logging and other options.</li>
  *   <li>Instantiate {@link Sigewine} with the options.</li>
- *   <li>Use {@link #treatment(Class)} or {@link #treatment(String)} to scan packages for beans.</li>
+ *   <li>Use {@link #treatment(Class)} or {@link #treatment(String, ClassLoader)} to scan packages for beans.</li>
  *   <li>Use {@link #syringe(Class)} to inject dependencies into a class.</li>
  * </ol>
  */
@@ -62,12 +65,12 @@ public class Sigewine {
     }
 
     /**
-     * Invokes {@link #treatment(String)} with the package name of the class.
+     * Invokes {@link #treatment(String, ClassLoader)} with the package name of the class and its class loader
      *
      * @param clazz Class to get the package name from
      */
     public void treatment(Class<?> clazz) {
-        treatment(clazz.getPackageName());
+        treatment(clazz.getPackageName(), clazz.getClassLoader());
     }
 
     /**
@@ -81,13 +84,18 @@ public class Sigewine {
      * </ol>
      *
      * @param packageName The package name to scan.
+     * @param classLoader The class loader to use for scanning.
      */
     @SneakyThrows
-    public synchronized void treatment(String packageName) {
+    public synchronized void treatment(String packageName, ClassLoader classLoader) {
         log.atLevel(sigewineOptions.getLogLevel()).log("Scanning package '{}' for classes annotated with @Romaritime", packageName);
 
         // Construct Reflections object
-        final var reflections = new Reflections(packageName, Scanners.MethodsAnnotated, Scanners.TypesAnnotated);
+        final var configuration = new ConfigurationBuilder()
+                .setUrls(ClasspathHelper.forPackage(packageName, classLoader))
+                .setScanners(Scanners.MethodsAnnotated, Scanners.TypesAnnotated)
+                .filterInputsBy(new FilterBuilder().includePackage(packageName));
+        final var reflections = new Reflections(configuration);
         final var annotatedClasses = reflections.getTypesAnnotatedWith(RomaritimeBean.class);
         final var annotatedMethods = reflections.getMethodsAnnotatedWith(RomaritimeBean.class);
 
