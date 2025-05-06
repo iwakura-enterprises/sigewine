@@ -90,12 +90,12 @@ public class Sigewine {
     public synchronized void treatment(String packageName, ClassLoader classLoader) {
         log.atLevel(sigewineOptions.getLogLevel()).log("Scanning package '{}' for classes annotated with @Romaritime", packageName);
 
-        // Construct Reflections object
-        final var configuration = new ConfigurationBuilder()
+        ConfigurationBuilder config = new ConfigurationBuilder()
                 .setUrls(ClasspathHelper.forPackage(packageName, classLoader))
-                .setScanners(Scanners.MethodsAnnotated, Scanners.TypesAnnotated)
+                .setScanners(Scanners.TypesAnnotated, Scanners.MethodsAnnotated)
                 .filterInputsBy(new FilterBuilder().includePackage(packageName));
-        final var reflections = new Reflections(configuration);
+        config.setClassLoaders(new ClassLoader[] { classLoader });
+        final var reflections = new Reflections(config);
         final var annotatedClasses = reflections.getTypesAnnotatedWith(RomaritimeBean.class);
         final var annotatedMethods = reflections.getMethodsAnnotatedWith(RomaritimeBean.class);
 
