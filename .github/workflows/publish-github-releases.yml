@@ -23,7 +23,7 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPEUSERNAME }}
           ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPEPASSWORD }}
-        run: ./gradlew test --no-daemon
+        run: ./gradlew test
   deploy:
     runs-on: ubuntu-latest
     needs: test
@@ -38,7 +38,7 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPEUSERNAME }}
           ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPEPASSWORD }}
-        run: ./gradlew shadowJar --no-daemon
+        run: ./gradlew shadowJar
       - name: Release
         uses: softprops/action-gh-release@v1
         with:

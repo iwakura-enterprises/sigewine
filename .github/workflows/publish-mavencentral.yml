@@ -23,7 +23,7 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPEUSERNAME }}
           ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPEPASSWORD }}
-        run: ./gradlew test --no-daemon
+        run: ./gradlew test
   deploy:
     runs-on: ubuntu-latest
     needs: test
@@ -41,4 +41,4 @@ jobs:
           GPG_KEY_ID: ${{ secrets.PGP_KEY_ID }}
           GPG_PRIVATE_KEY: ${{ secrets.PGP_SECRET }}
           GPG_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-        run: ./gradlew publishCloseAndRelease --no-daemon
+        run: ./gradlew publishCloseAndRelease
