@@ -17,6 +17,7 @@ public class TeyvatService {
     private final PrimordialService primordialService;
     private final SecondWhoCameService secondWhoCameService;
     private final LoggingConfiguration loggingConfiguration; // Will be the info one
+    private final BaseDatabaseService databaseService;
 
     @RomaritimeBean
     private final List<BaseEntity> entities = new TypedArrayList<>(BaseEntity.class);

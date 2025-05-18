@@ -13,6 +13,7 @@ import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.function.Function;
 
@@ -43,7 +44,7 @@ public class Sigewine {
     /**
      * Map of beans registered in the DI container.
      */
-    protected final Map<String, Object> beans = new HashMap<>();
+    protected final Map<BeanDefinition, Object> singletonBeans = new HashMap<>();
 
     /**
      * List of classes that have method beans that need to be initialized later.
@@ -88,54 +89,49 @@ public class Sigewine {
      */
     @SneakyThrows
     public synchronized void treatment(String packageName, ClassLoader classLoader) {
-        log.atLevel(sigewineOptions.getLogLevel()).log("Scanning package '{}' for classes annotated with @Romaritime", packageName);
+        log.info("Scanning package '{}' for classes annotated with @Romaritime", packageName);
 
         ConfigurationBuilder config = new ConfigurationBuilder()
                 .setUrls(ClasspathHelper.forPackage(packageName, classLoader))
                 .setScanners(Scanners.TypesAnnotated, Scanners.MethodsAnnotated)
                 .filterInputsBy(new FilterBuilder().includePackage(packageName));
-        config.setClassLoaders(new ClassLoader[] { classLoader });
+        config.setClassLoaders(new ClassLoader[] {classLoader});
         final var reflections = new Reflections(config);
         final var annotatedClasses = reflections.getTypesAnnotatedWith(RomaritimeBean.class);
         final var annotatedMethods = reflections.getMethodsAnnotatedWith(RomaritimeBean.class);
 
-        log.atLevel(sigewineOptions.getLogLevel()).log("Found '{}' classes annotated with @Romaritime", annotatedClasses.size());
-        log.atLevel(sigewineOptions.getLogLevel()).log("Found '{}' methods annotated with @Romaritime", annotatedMethods.size());
+        log.info("Found '{}' classes annotated with @Romaritime", annotatedClasses.size());
+        log.info("Found '{}' methods annotated with @Romaritime", annotatedMethods.size());
 
-        // Register method beans
-        log.atLevel(sigewineOptions.getLogLevel()).log("Registering methods annotated with @Romaritime");
-        for (Method method : annotatedMethods) {
-            registerMethodBean(method);
-        }
+        // Collect beans to register
+        log.debug("Collecting bean definitions...");
+        var beanDefinitions = new HashSet<BeanDefinition>();
+        collectMethodBeans(beanDefinitions, annotatedMethods);
+        collectClassBeans(beanDefinitions, annotatedClasses);
+        log.info("Collected '{}' bean definitions", beanDefinitions.size());
 
-        // Initialize method beans that were not initialized yet
-        log.atLevel(sigewineOptions.getLogLevel()).log("Initializing later-initialization method beans");
-        for (Class<?> clazz : initializeLaterMethodBeans) {
-            log.atLevel(sigewineOptions.getLogLevel()).log("Initializing method beans for class '{}'", clazz.getName());
-            registerClassBean(clazz, false);
+        log.debug("Sorting bean definitions...");
+        var sortedBeanDefinitions = beanDefinitions.stream()
+                                                   .peek(BeanDefinition::computeBeanScore)
+                                                   .sorted(Comparator.comparingLong(BeanDefinition::getBeanScore))
+                                                   .toList();
 
-            log.atLevel(sigewineOptions.getLogLevel()).log("Going through methods of class '{}'", clazz.getName());
-            final var beanMethods = clazz.getDeclaredMethods();
-            for (Method beanMethod : beanMethods) {
-                if (beanMethod.isAnnotationPresent(RomaritimeBean.class)) {
-                    registerMethodBean(beanMethod);
-                }
+        for (BeanDefinition beanDefinition : sortedBeanDefinitions) {
+            log.debug("Registering bean definition '{}'", beanDefinition);
+
+            if (beanDefinition.getMethod() != null) {
+                registerMethodBean(beanDefinition);
+            } else {
+                registerClassBean(beanDefinition);
             }
-        }
-        initializeLaterMethodBeans.clear();
-
-        // Register class beans
-        log.atLevel(sigewineOptions.getLogLevel()).log("Registering classes annotated with @Romaritime");
-        for (Class<?> clazz : annotatedClasses) {
-            registerClassBean(clazz, false);
         }
 
         // Inject beans into collections
-        log.atLevel(sigewineOptions.getLogLevel()).log("Going through beans to inject beans into TypedCollections");
-        for (Map.Entry<String, Object> namedBeanEntry : beans.entrySet()) {
-            final var beanName = namedBeanEntry.getKey();
-            final var bean = namedBeanEntry.getValue();
-            log.atLevel(sigewineOptions.getLogLevel()).log("Going through bean '{}': '{}'", beanName, bean);
+        log.debug("Going through beans to inject beans into TypedCollections");
+        for (Map.Entry<BeanDefinition, Object> beanEntry : singletonBeans.entrySet()) {
+            final var beanDefinition = beanEntry.getKey();
+            final var bean = beanEntry.getValue();
+            log.debug("Going through bean '{}': '{}'", beanDefinition, bean);
             final var declaredFields = bean.getClass().getDeclaredFields();
 
             for (var field : declaredFields) {
@@ -149,8 +145,7 @@ public class Sigewine {
                     var collectionObject = field.get(bean);
 
                     if (!(collectionObject instanceof TypedCollection<?> collection)) {
-                        log.atLevel(sigewineOptions.getLogLevel())
-                           .log("Field '{}' is collection, but is not instance of TypedCollection. Ignoring", field.getName());
+                        log.debug("Field '{}' is collection, but is not instance of TypedCollection. Ignoring", field.getName());
                         continue;
                     }
 
@@ -165,8 +160,8 @@ public class Sigewine {
                     }
 
                     var beansToInject = getAllBeansThatAreAssignableFrom(collectionType);
-                    log.atLevel(sigewineOptions.getLogLevel()).log("Injecting '{}' beans into bean named '{}' for collection named '{}' of type '{}'",
-                                                                   beansToInject.size(), beanName, field.getName(), collectionType.getName()
+                    log.debug("Injecting '{}' beans into bean named '{}' for collection named '{}' of type '{}'",
+                              beansToInject.size(), beanDefinition, field.getName(), collectionType.getName()
                     );
                     beansToInject.forEach(collection::addTypedObject);
                     field.setAccessible(wasAccessible);
@@ -174,245 +169,252 @@ public class Sigewine {
             }
         }
 
-        log.atLevel(sigewineOptions.getLogLevel()).log("Finished scanning package '{}', bean count: '{}'", packageName, beans.size());
-    }
-
-    /**
-     * Injects dependencies into the specified class.
-     * <p>
-     * This method resolves dependencies for the class and creates an instance
-     * with all dependencies injected.
-     * </p>
-     *
-     * @param clazz The class to inject dependencies into.
-     * @param <T>   The type of the class.
-     * @return An instance of the class with dependencies injected.
-     */
-    public <T> T syringe(Class<T> clazz) {
-        return syringeInternal(clazz, (c) -> {
-                                   throw new IllegalArgumentException("No bean found for class " + c.getName());
-                               }
-        );
+        log.info("Finished scanning package '{}', singleton bean count: '{}'", packageName, singletonBeans.size());
     }
 
     /**
      * Injects dependencies into the class.
      *
      * @param clazz         Class to inject dependencies into
-     * @param onUnknownBean Function to call when a bean is not found. Should return a non-null bean or throw an exception.
      * @param <T>           Type of the class
      *
      * @return Instance of the class with dependencies injected
      */
     @SneakyThrows
-    protected <T> T syringeInternal(Class<T> clazz, Function<Class<?>, Object> onUnknownBean) {
+    public <T> T syringe(Class<T> clazz) {
         // Get bean name for the class
-        final var beanName = getBeanName(clazz.getAnnotation(RomaritimeBean.class), clazz.getName());
+        final var beanDefinition = BeanDefinition.of(clazz);
 
         // If bean is already registered, return it
-        if (beans.containsKey(beanName)) {
-            final var beanObject = beans.get(beanName);
+        if (isBeanRegistered(beanDefinition)) {
+            final var beanObject = getRegisteredBean(beanDefinition);
             if (!clazz.isAssignableFrom(beanObject.getClass())) {
-                throw new IllegalArgumentException("Bug! Bean " + beanName + " is not of type " + clazz.getName());
+                throw new IllegalArgumentException("Bug! Bean " + beanDefinition + " is not of type " + clazz.getName());
             }
-            log.atLevel(sigewineOptions.getLogLevel())
-               .log("Returning registered bean '{}' of class '{}': '{}'", beanName, clazz.getName(), beanObject);
-            return clazz.cast(beans.get(beanName));
+            log.debug("Returning registered bean '{}' of class '{}': '{}'", beanDefinition, clazz.getName(), beanObject);
+            return clazz.cast(getRegisteredBean(beanDefinition));
         }
 
         // Inject dependencies
-        log.atLevel(sigewineOptions.getLogLevel()).log("Injecting beans into class bean '{}' of class '{}'", beanName, clazz.getName());
+        log.debug("Injecting beans into class bean '{}' of class '{}'", beanDefinition, clazz.getName());
         Preconditions.checkOneConstructor(clazz);
 
         final var constructor = clazz.getConstructors()[0];
         final var parameters = constructor.getParameters();
         final var args = new Object[parameters.length];
 
-        log.atLevel(sigewineOptions.getLogLevel()).log("Found '{}' parameters for bean '{}' of class '{}': '{}'", parameters.length, beanName, clazz.getName(), parameters);
+        log.debug("Found '{}' parameters for bean '{}' of class '{}': '{}'", parameters.length, beanDefinition, clazz.getName(), parameters);
 
         for (int i = 0; i < parameters.length; i++) {
             final var parameter = parameters[i];
-            final var romaritimeAnnotation = parameter.getAnnotation(RomaritimeBean.class);
             final var parameterType = parameter.getType();
             final var parameterName = parameter.getName();
+            final var parameterBeanDefinition = BeanDefinition.of(parameter);
 
             Object argInstance;
 
-            if (romaritimeAnnotation != null
-                    && !romaritimeAnnotation.name().isBlank()
-                    && beans.containsKey(romaritimeAnnotation.name())) {
-                argInstance = beans.get(romaritimeAnnotation.name());
-            } else if (beans.containsKey(parameterType.getName())) {
-                argInstance = beans.get(parameterType.getName());
-            } else if (beans.containsKey(parameterName)) {
-                argInstance = beans.get(parameterName);
+            if (isBeanRegistered(parameterBeanDefinition)) {
+                argInstance = getRegisteredBean(parameterBeanDefinition);
             } else {
-                log.atLevel(sigewineOptions.getLogLevel())
-                   .log("No bean found for parameter '{}' of type '{}' in class '{}', using onUnknownBean function", parameterName, parameterType.getName(), clazz.getName());
-                argInstance = onUnknownBean.apply(parameterType);
+                throw new IllegalArgumentException("No bean found for parameter '" + parameterName + "' of type '" + parameterType.getName() + "' in class '" + clazz.getName() + "'");
             }
 
             args[i] = argInstance;
         }
 
-        log.atLevel(sigewineOptions.getLogLevel())
-           .log("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length, beanName, clazz.getName(), args);
+        log.debug("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length, beanDefinition, clazz.getName(), args);
         return clazz.cast(constructor.newInstance(args));
+    }
+
+    /**
+     * Collects method beans from the specified set of annotated methods.
+     *
+     * @param beanDefinitions  Set of bean definitions to collect
+     * @param annotatedMethods Set of annotated methods to collect
+     */
+    protected void collectMethodBeans(Set<BeanDefinition> beanDefinitions, Set<Method> annotatedMethods) {
+        for (Method method : annotatedMethods) {
+            final var romaritime = method.getAnnotation(RomaritimeBean.class);
+            final var declaringClass = method.getDeclaringClass();
+
+            // Skip methods that are not annotated with @RomaritimeBean
+            if (romaritime == null) {
+                continue;
+            }
+
+            // Skip abstract / interface classes
+            if (Modifier.isAbstract(declaringClass.getModifiers()) || declaringClass.isInterface()) {
+                log.debug("Skipping abstract class or interface '{}' for method bean '{}'", declaringClass.getName(), method);
+                continue;
+            }
+
+            // Collect declaring class beans
+            collectClassBeans(beanDefinitions, Set.of(declaringClass));
+
+            final var beanDefinition = BeanDefinition.of(method);
+            log.debug("Collecting method bean '{}' of class '{}'", beanDefinition, declaringClass.getName());
+            beanDefinitions.add(beanDefinition);
+        }
+    }
+
+    /**
+     * Collects class beans from the specified set of annotated classes.
+     *
+     * @param beanDefinitions  Set of bean definitions to collect
+     * @param annotatedClasses Set of annotated classes to collect
+     */
+    private void collectClassBeans(Set<BeanDefinition> beanDefinitions, Set<Class<?>> annotatedClasses) {
+        for (Class<?> clazz : annotatedClasses) {
+            // Skip non-annotated classes
+            if (!clazz.isAnnotationPresent(RomaritimeBean.class)) {
+                log.debug("Skipping class '{}' for class bean '{}'", clazz.getName(), clazz);
+                continue;
+            }
+
+            // Skip abstract / interface classes
+            if (Modifier.isAbstract(clazz.getModifiers()) || clazz.isInterface()) {
+                log.debug("Skipping abstract class or interface '{}' for class bean '{}'", clazz.getName(), clazz);
+                continue;
+            }
+
+            // Collect constructors
+            var constructors = clazz.getConstructors();
+
+            if (constructors.length > 1) {
+                throw new IllegalArgumentException("Class " + clazz.getName() + " has more than one constructor");
+            } else if (constructors.length == 1) {
+                var constructor = constructors[0];
+                var parameters = constructor.getParameters();
+
+                for (var parameter : parameters) {
+                    // Skip abstract / interface classes
+                    if (Modifier.isAbstract(parameter.getType().getModifiers()) || parameter.getType().isInterface()) {
+                        log.debug("Skipping abstract class or interface '{}' for class bean '{}' within constructor argument '{}'", parameter.getType()
+                                                                                                                                             .getName(), clazz, parameter.getName()
+                        );
+                        continue;
+                    }
+
+                    var romaritime = parameter.getAnnotation(RomaritimeBean.class);
+
+                    if (romaritime != null && !romaritime.name().isBlank()) {
+                        log.debug("Skipping class '{}' for class bean '{}' within constructor argument '{}' because its named bean, expected to be registered from method bean or other mean", parameter.getType()
+                                                                                                                                                                                                        .getName(), clazz, parameter.getName()
+                        );
+                        continue;
+                    }
+
+                    // Collect class beans
+                    collectClassBeans(beanDefinitions, Set.of(parameter.getType()));
+                }
+            }
+
+            final var beanDefinition = BeanDefinition.of(clazz);
+            log.debug("Collecting class bean '{}' of class '{}'", beanDefinition, clazz.getName());
+            beanDefinitions.add(beanDefinition);
+        }
     }
 
     /**
      * Registers a method bean.
      *
-     * @param method Method to register
+     * @param beanDefinition Bean definition to register
      */
     @SneakyThrows
-    protected void registerMethodBean(Method method) {
-        final var romaritime = method.getAnnotation(RomaritimeBean.class);
+    protected void registerMethodBean(BeanDefinition beanDefinition) {
+        final var method = beanDefinition.getMethod();
         final var declaringClass = method.getDeclaringClass();
         final var returnType = method.getReturnType();
 
         Preconditions.checkNoVoidReturnType(method);
         Preconditions.checkNoPrimitiveReturnType(method);
 
-        final var beanName = getBeanName(romaritime, returnType.getName());
-        log.atLevel(sigewineOptions.getLogLevel())
-           .log("Registering method '{}' of declaring class '{}' as bean '{}'", method, method.getDeclaringClass(), beanName);
-
-        if (beans.containsKey(beanName)) {
-            throw new IllegalArgumentException("Class " + returnType.getName() + " already registered as " + beanName);
+        if (isBeanRegistered(beanDefinition)) {
+            throw new IllegalArgumentException("Class " + returnType.getName() + " already registered as " + beanDefinition);
         }
 
+        log.debug("Registering method bean '{}' of class '{}'", beanDefinition, declaringClass.getName());
+
+        //@formatter:off
         final var beanClassInstance = methodBeanDeclaringClassCache.computeIfAbsent(declaringClass, clazz -> {
+            var classBeanDefinition = BeanDefinition.of(clazz);
+
+            if (isBeanRegistered(classBeanDefinition)) {
+                return getRegisteredBean(classBeanDefinition);
+            }
+
             boolean hasNoArgConstructor = Arrays.stream(clazz.getConstructors()).anyMatch(constructor -> constructor.getParameterCount() == 0);
 
             if (hasNoArgConstructor) {
                 try {
                     return clazz.getConstructor().newInstance();
                 } catch (Exception exception) {
-                    throw new RuntimeException("Failed to create instance of " + clazz.getName() + " for bean " + beanName + " (nos no-args constructor?)", exception);
+                    throw new RuntimeException("Failed to create instance of " + clazz.getName() + " for bean " + beanDefinition + " (no no-args constructor?)", exception);
                 }
             }
 
-            try {
-                // Check if the class already has a bean, if yes, return
-                return syringeInternal(clazz, (otherClass) -> {
-                    throw new IllegalStateException();
-                });
-            } catch (IllegalStateException ignored) {
-                // Catch the exception and return null
-                log.atLevel(sigewineOptions.getLogLevel()).log("Class '{}' has no no-args constructor, will be initialized later", clazz.getName());
-                initializeLaterMethodBeans.add(clazz);
-                return null;
-            }
+            return syringe(clazz);
         });
+        //@formatter:on
 
-        // In case of later initialization, we will not register the bean yet
-        if (beanClassInstance != null) {
-            final var beanInstance = method.invoke(beanClassInstance);
+        final var beanInstance = method.invoke(beanClassInstance);
 
-            if (beanInstance == null) {
-                throw new IllegalArgumentException("Method " + method + " cannot return null");
-            }
-
-            registerBeanWithInstance(returnType, beanName, beanInstance);
+        if (beanInstance == null) {
+            throw new IllegalArgumentException("Method " + method + " cannot return null");
         }
+
+        registerBeanWithInstance(returnType, beanDefinition, beanInstance);
     }
 
     /**
      * Registers a class bean.
      *
-     * @param clazz            Class to register
-     * @param ignoreDuplicates Ignore duplicates
+     * @param beanDefinition Bean definition to register
      */
     @SneakyThrows
-    protected void registerClassBean(Class<?> clazz, boolean ignoreDuplicates) {
-        final var beanName = getBeanName(clazz.getAnnotation(RomaritimeBean.class), clazz.getName());
+    protected void registerClassBean(BeanDefinition beanDefinition) {
+        final var constructorBeanDefinitions = beanDefinition.getConstructorBeanDefinitions();
+        final var beanClass = beanDefinition.getClazz();
+        final Object beanInstance;
 
-        if (beans.containsKey(beanName)) {
-            if (ignoreDuplicates) {
-                log.atLevel(sigewineOptions.getLogLevel())
-                   .log("Class '{}' already registered as '{}', ignoring per ignoreDuplicates", clazz.getName(), beanName);
-                return;
+        if (constructorBeanDefinitions.isEmpty()) {
+            log.debug("Creating bean instance for class bean '{}'", beanDefinition);
+            beanInstance = beanClass.getConstructor().newInstance();
+        } else {
+            log.debug("Creating bean instance for class bean '{}' with constructor arguments: '{}'", beanDefinition, constructorBeanDefinitions);
+            final var constructor = beanClass.getConstructors()[0];
+            var parameters = constructor.getParameters();
+            var args = new Object[parameters.length];
+
+            for (int i = 0; i < parameters.length; i++) {
+                final var parameterBeanDefinition = constructorBeanDefinitions.get(i);
+                if (isBeanRegistered(parameterBeanDefinition)) {
+                    args[i] = getRegisteredBean(parameterBeanDefinition);
+                } else {
+                    throw new IllegalArgumentException("No bean found for constructor argument '" + parameterBeanDefinition + "' of class '" + beanClass.getName() + "'");
+                }
             }
 
-            if (beans.get(beanName).getClass() == clazz) {
-                log.atLevel(sigewineOptions.getLogLevel())
-                   .log("Class '{}' already registered as '{}', ignoring per same class instance", clazz.getName(), beanName);
-                return;
-            }
-
-            throw new IllegalArgumentException("Class " + clazz.getName() + " already registered as " + beanName);
+            beanInstance = constructor.newInstance(args);
         }
 
-        var constructors = clazz.getConstructors();
-        if (constructors.length == 1 && constructors[0].getParameters().length == 0) {
-            registerBeanWithInstance(clazz, beanName, clazz.getConstructor().newInstance());
-            return;
-        }
-
-        Preconditions.checkOneConstructor(clazz);
-
-        final var beanClassInstance = syringeInternal(clazz, this::recursiveOnUnknownBean);
-
-        if (beanClassInstance == null) {
-            throw new IllegalArgumentException("Class " + clazz.getName() + " cannot return null");
-        }
-
-        registerBeanWithInstance(clazz, beanName, beanClassInstance);
+        log.debug("Registering bean instance for class bean '{}' of class '{}'", beanDefinition, beanClass.getName());
+        registerBeanWithInstance(beanClass, beanDefinition, beanInstance);
     }
 
     /**
      * Registers a bean with an instance. Checks if the bean is already registered.
      *
-     * @param clazz    Class of the bean
-     * @param beanName Name of the bean
-     * @param instance Instance of the bean
+     * @param clazz          Class of the bean
+     * @param beanDefinition Bean definition
+     * @param instance       Instance of the bean
      */
-    protected void registerBeanWithInstance(Class<?> clazz, String beanName, Object instance) {
-        if (beans.containsKey(beanName)) {
-            throw new IllegalArgumentException("Class " + instance.getClass().getName() + " already registered as " + beanName);
+    protected void registerBeanWithInstance(Class<?> clazz, BeanDefinition beanDefinition, Object instance) {
+        if (isBeanRegistered(beanDefinition)) {
+            throw new IllegalArgumentException("Class " + instance.getClass().getName() + " already registered as " + beanDefinition);
         }
-        log.atLevel(sigewineOptions.getLogLevel()).log("Registering bean '{}' of class '{}'", beanName, clazz.getName());
-        beans.put(beanName, instance);
-    }
-
-    /**
-     * Recursively injects dependencies into the class.
-     *
-     * @param clazz Class to inject dependencies into
-     *
-     * @return Instance of the class with dependencies injected
-     */
-    protected Object recursiveOnUnknownBean(Class<?> clazz) {
-        if (Collection.class.isAssignableFrom(clazz)) {
-            throw new IllegalArgumentException("Cannot inject collection of type " + clazz.getName() + ", please use TypedCollection");
-        }
-        Preconditions.checkAnnotated(clazz, RomaritimeBean.class);
-        final var beanName = getBeanName(clazz.getAnnotation(RomaritimeBean.class), clazz.getName());
-        log.atLevel(sigewineOptions.getLogLevel()).log("Recursively injecting beans into class bean '{}' of class '{}'", beanName, clazz.getName());
-        if (beans.containsKey(beanName)) {
-            log.atLevel(sigewineOptions.getLogLevel())
-               .log("Returning already registered bean '{}' of class '{}': '{}'", beanName, clazz.getName(), beans.get(beanName));
-            return beans.get(beanName);
-        }
-        registerClassBean(clazz, true);
-        return syringeInternal(clazz, this::recursiveOnUnknownBean);
-    }
-
-    /**
-     * Gets the bean name from the class.
-     *
-     * @param romaritimeBean Romaritime annotation
-     * @param defaultName    Default name to use if no name is specified
-     *
-     * @return Bean name
-     */
-    protected String getBeanName(RomaritimeBean romaritimeBean, String defaultName) {
-        if (romaritimeBean != null && !romaritimeBean.name().isBlank()) {
-            return romaritimeBean.name();
-        }
-
-        return defaultName;
+        log.debug("Registering bean '{}' of class '{}'", beanDefinition, clazz.getName());
+        singletonBeans.put(beanDefinition, instance);
     }
 
     /**
@@ -424,11 +426,38 @@ public class Sigewine {
      */
     protected Set<Object> getAllBeansThatAreAssignableFrom(Class<?> clazz) {
         final var beans = new HashSet<>();
-        for (var entry : this.beans.entrySet()) {
+        for (var entry : this.singletonBeans.entrySet()) {
             if (clazz.isAssignableFrom(entry.getValue().getClass())) {
                 beans.add(entry.getValue());
             }
         }
         return beans;
+    }
+
+    /**
+     * Checks if the bean is already registered.
+     *
+     * @param beanDefinition Bean definition to check
+     *
+     * @return True if the bean is already registered, false otherwise
+     */
+    protected boolean isBeanRegistered(BeanDefinition beanDefinition) {
+        return singletonBeans.entrySet().stream().anyMatch(entry -> entry.getKey().is(beanDefinition));
+    }
+
+    /**
+     * Gets the bean name from the annotation or class name.
+     *
+     * @param beanDefinition Bean definition to check
+     *
+     * @return Bean name
+     */
+    protected Object getRegisteredBean(BeanDefinition beanDefinition) {
+        return singletonBeans.entrySet().stream()
+                             .filter(entry -> entry.getKey().is(beanDefinition))
+                             .map(Map.Entry::getValue)
+                             .findFirst()
+                             .map(beanDefinition.getClazz()::cast)
+                             .orElseThrow(() -> new IllegalArgumentException("No bean found for " + beanDefinition));
     }
 }

@@ -1,6 +1,7 @@
 package enterprises.iwakura.sigewine;
 
 import enterprises.iwakura.sigewine.beans.BeanizedBean;
+import enterprises.iwakura.sigewine.services.DatabaseServerImpl;
 import enterprises.iwakura.sigewine.services.TeyvatService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,6 @@ public class SigewineTest {
         // Arrange
         //@formatter:off
         SigewineOptions sigewineOptions = SigewineOptions.builder()
-            .logLevel(Level.INFO)
             .build();
         Sigewine sigewine = new Sigewine(sigewineOptions);
 
@@ -26,6 +26,8 @@ public class SigewineTest {
         Assertions.assertNotNull(teyvatService, "Teyvat Service should not be null");
         Assertions.assertInstanceOf(TeyvatService.class, teyvatService, "Teyvat Service should be an instance of TeyvatService");
         Assertions.assertEquals(3, teyvatService.getEntities().size(), "There should be 3 entities in TeyvatService#entities");
+        Assertions.assertNotNull(teyvatService.getDatabaseService(), "Teyvat Service Database Service should not be null");
+        Assertions.assertInstanceOf(DatabaseServerImpl.class, teyvatService.getDatabaseService(), "Teyvat Service Database Service should be an instance of DatabaseServerImpl");
 
         final var teyvatLogging = teyvatService.getLoggingConfiguration();
         Assertions.assertNotNull(teyvatLogging, "Teyvat Logging should not be null");
