@@ -103,18 +103,16 @@ public class Sigewine {
         log.info("Found '{}' classes annotated with @Romaritime", annotatedClasses.size());
         log.info("Found '{}' methods annotated with @Romaritime", annotatedMethods.size());
 
-        // Collect beans to register
-        log.debug("Collecting bean definitions...");
         var beanDefinitions = new HashSet<BeanDefinition>();
-        collectMethodBeans(beanDefinitions, annotatedMethods);
-        collectClassBeans(beanDefinitions, annotatedClasses);
-        log.info("Collected '{}' bean definitions", beanDefinitions.size());
+        annotatedClasses.forEach(clazz -> beanDefinitions.add(BeanDefinition.of(clazz)));
+        annotatedMethods.forEach(method -> beanDefinitions.add(BeanDefinition.of(method)));
 
         log.debug("Sorting bean definitions...");
+        //@formatter:off
         var sortedBeanDefinitions = beanDefinitions.stream()
-                                                   .peek(BeanDefinition::computeBeanScore)
-                                                   .sorted(Comparator.comparingLong(BeanDefinition::getBeanScore))
-                                                   .toList();
+                .sorted(Comparator.comparingLong(BeanDefinition::computeBeanScore))
+                .toList();
+        //@formatter:on
 
         for (BeanDefinition beanDefinition : sortedBeanDefinitions) {
             log.debug("Registering bean definition '{}'", beanDefinition);
@@ -224,95 +222,6 @@ public class Sigewine {
 
         log.debug("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length, beanDefinition, clazz.getName(), args);
         return clazz.cast(constructor.newInstance(args));
-    }
-
-    /**
-     * Collects method beans from the specified set of annotated methods.
-     *
-     * @param beanDefinitions  Set of bean definitions to collect
-     * @param annotatedMethods Set of annotated methods to collect
-     */
-    protected void collectMethodBeans(Set<BeanDefinition> beanDefinitions, Set<Method> annotatedMethods) {
-        for (Method method : annotatedMethods) {
-            final var romaritime = method.getAnnotation(RomaritimeBean.class);
-            final var declaringClass = method.getDeclaringClass();
-
-            // Skip methods that are not annotated with @RomaritimeBean
-            if (romaritime == null) {
-                continue;
-            }
-
-            // Skip abstract / interface classes
-            if (Modifier.isAbstract(declaringClass.getModifiers()) || declaringClass.isInterface()) {
-                log.debug("Skipping abstract class or interface '{}' for method bean '{}'", declaringClass.getName(), method);
-                continue;
-            }
-
-            // Collect declaring class beans
-            collectClassBeans(beanDefinitions, Set.of(declaringClass));
-
-            final var beanDefinition = BeanDefinition.of(method);
-            log.debug("Collecting method bean '{}' of class '{}'", beanDefinition, declaringClass.getName());
-            beanDefinitions.add(beanDefinition);
-        }
-    }
-
-    /**
-     * Collects class beans from the specified set of annotated classes.
-     *
-     * @param beanDefinitions  Set of bean definitions to collect
-     * @param annotatedClasses Set of annotated classes to collect
-     */
-    private void collectClassBeans(Set<BeanDefinition> beanDefinitions, Set<Class<?>> annotatedClasses) {
-        for (Class<?> clazz : annotatedClasses) {
-            // Skip non-annotated classes
-            if (!clazz.isAnnotationPresent(RomaritimeBean.class)) {
-                log.debug("Skipping class '{}' for class bean '{}'", clazz.getName(), clazz);
-                continue;
-            }
-
-            // Skip abstract / interface classes
-            if (Modifier.isAbstract(clazz.getModifiers()) || clazz.isInterface()) {
-                log.debug("Skipping abstract class or interface '{}' for class bean '{}'", clazz.getName(), clazz);
-                continue;
-            }
-
-            // Collect constructors
-            var constructors = clazz.getConstructors();
-
-            if (constructors.length > 1) {
-                throw new IllegalArgumentException("Class " + clazz.getName() + " has more than one constructor");
-            } else if (constructors.length == 1) {
-                var constructor = constructors[0];
-                var parameters = constructor.getParameters();
-
-                for (var parameter : parameters) {
-                    // Skip abstract / interface classes
-                    if (Modifier.isAbstract(parameter.getType().getModifiers()) || parameter.getType().isInterface()) {
-                        log.debug("Skipping abstract class or interface '{}' for class bean '{}' within constructor argument '{}'", parameter.getType()
-                                                                                                                                             .getName(), clazz, parameter.getName()
-                        );
-                        continue;
-                    }
-
-                    var romaritime = parameter.getAnnotation(RomaritimeBean.class);
-
-                    if (romaritime != null && !romaritime.name().isBlank()) {
-                        log.debug("Skipping class '{}' for class bean '{}' within constructor argument '{}' because its named bean, expected to be registered from method bean or other mean", parameter.getType()
-                                                                                                                                                                                                        .getName(), clazz, parameter.getName()
-                        );
-                        continue;
-                    }
-
-                    // Collect class beans
-                    collectClassBeans(beanDefinitions, Set.of(parameter.getType()));
-                }
-            }
-
-            final var beanDefinition = BeanDefinition.of(clazz);
-            log.debug("Collecting class bean '{}' of class '{}'", beanDefinition, clazz.getName());
-            beanDefinitions.add(beanDefinition);
-        }
     }
 
     /**
