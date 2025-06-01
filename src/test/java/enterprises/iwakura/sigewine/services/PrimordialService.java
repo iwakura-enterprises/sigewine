@@ -1,8 +1,8 @@
 package enterprises.iwakura.sigewine.services;
 
-import enterprises.iwakura.sigewine.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
 import enterprises.iwakura.sigewine.beans.LoggingConfiguration;
-import lombok.*;
+import lombok.Getter;
 
 @Getter
 @RomaritimeBean

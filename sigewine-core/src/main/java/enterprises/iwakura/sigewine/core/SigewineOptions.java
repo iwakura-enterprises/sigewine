@@ -1,10 +1,7 @@
-package enterprises.iwakura.sigewine;
+package enterprises.iwakura.sigewine.core;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.slf4j.event.Level;
 
 /**
  * Holds configuration options for {@link Sigewine}.

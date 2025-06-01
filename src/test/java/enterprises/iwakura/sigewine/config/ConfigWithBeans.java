@@ -1,6 +1,6 @@
 package enterprises.iwakura.sigewine.config;
 
-import enterprises.iwakura.sigewine.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
 import enterprises.iwakura.sigewine.beans.BeanizedBean;
 import enterprises.iwakura.sigewine.beans.LoggingConfiguration;
 import enterprises.iwakura.sigewine.services.BaseDatabaseService;

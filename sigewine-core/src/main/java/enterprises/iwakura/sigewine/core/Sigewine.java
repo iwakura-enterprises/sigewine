@@ -1,9 +1,11 @@
-package enterprises.iwakura.sigewine;
+package enterprises.iwakura.sigewine.core;
 
-import enterprises.iwakura.sigewine.annotations.RomaritimeBean;
-import enterprises.iwakura.sigewine.utils.Preconditions;
-import enterprises.iwakura.sigewine.utils.collections.TypedCollection;
+import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.extension.SigewineConstellation;
+import enterprises.iwakura.sigewine.core.utils.Preconditions;
+import enterprises.iwakura.sigewine.core.utils.collections.TypedCollection;
 import lombok.Data;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
@@ -12,16 +14,16 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * Main entry point to the Sigewine Dependency Injection (DI) API.
  * <p>
  * This class provides functionality for scanning, registering, and injecting beans
- * (classes or methods annotated with {@link RomaritimeBean}) into a dependency graph.
+ * (classes or methods annotated with {@link RomaritimeBean} or the extension of it) into a dependency graph.
+ * </p>
+ * <p>
+ * You may add additional functionality by implementing the {@link SigewineConstellation} interface and adding it to the Sigewine instance.
  * </p>
  * <p>
  * <b>Usage:</b>
@@ -40,22 +42,27 @@ public class Sigewine {
      * Sigewine options.
      */
     protected final SigewineOptions sigewineOptions;
-
+    /**
+     * List of constellations to extend the functionality of Sigewine.
+     */
+    protected final List<SigewineConstellation> constellations = new ArrayList<>(List.of());
     /**
      * Map of beans registered in the DI container.
      */
     protected final Map<BeanDefinition, Object> singletonBeans = new HashMap<>();
-
     /**
      * List of classes that have method beans that need to be initialized later.
      */
     protected final List<Class<?>> initializeLaterMethodBeans = new ArrayList<>();
-
     /**
      * Cache for method bean declaring classes.
      */
     protected final Map<Class<?>, Object> methodBeanDeclaringClassCache = new HashMap<>();
-
+    /**
+     * Map of original beans that are proxied. This is used to keep track of the original bean instances
+     * when they are proxied by the AOP constellation or any other constellation that creates proxies.
+     */
+    protected final Map<BeanDefinition, Object> proxiedOriginalBeans = new HashMap<>();
     /**
      * Constructor for Sigewine.
      *
@@ -79,8 +86,8 @@ public class Sigewine {
      * <p>
      * This method performs the following steps:
      * <ol>
-     *     <li>Scans for methods annotated with {@link RomaritimeBean} and registers them as beans.</li>
-     *     <li>Scans for classes annotated with {@link RomaritimeBean} and registers them as beans.</li>
+     *     <li>Scans for methods annotated with {@link RomaritimeBean} (or the extension of it) and registers their return values as beans.</li>
+     *     <li>Scans for classes annotated with {@link RomaritimeBean} (or the extension of it) and registers them as beans.</li>
      *     <li>Injects beans into fields of type {@link TypedCollection}.</li>
      * </ol>
      *
@@ -100,8 +107,8 @@ public class Sigewine {
         final var annotatedClasses = reflections.getTypesAnnotatedWith(RomaritimeBean.class);
         final var annotatedMethods = reflections.getMethodsAnnotatedWith(RomaritimeBean.class);
 
-        log.info("Found '{}' classes annotated with @Romaritime", annotatedClasses.size());
-        log.info("Found '{}' methods annotated with @Romaritime", annotatedMethods.size());
+        log.info("Found '{}' classes annotated with bean annotation", annotatedClasses.size());
+        log.info("Found '{}' methods annotated with bean annotation", annotatedMethods.size());
 
         var beanDefinitions = new HashSet<BeanDefinition>();
         annotatedClasses.forEach(clazz -> beanDefinitions.add(BeanDefinition.of(clazz)));
@@ -124,11 +131,21 @@ public class Sigewine {
             }
         }
 
+        // Process constellations
+        log.debug("Processing constellations...");
+        constellations.stream()
+            .sorted(Comparator.comparingInt(SigewineConstellation::getPriority))
+            .forEach(constellation -> {
+                log.debug("Processing constellation '{}' with priority '{}'", constellation.getClass().getSimpleName(), constellation.getPriority());
+                constellation.processBeans(this);
+            });
+
         // Inject beans into collections
         log.debug("Going through beans to inject beans into TypedCollections");
         for (Map.Entry<BeanDefinition, Object> beanEntry : singletonBeans.entrySet()) {
             final var beanDefinition = beanEntry.getKey();
-            final var bean = beanEntry.getValue();
+            // Prefer original bean since it might be a proxy and we need the original instance
+            final var bean = Optional.ofNullable(proxiedOriginalBeans.get(beanDefinition)).orElse(beanEntry.getValue());
             log.debug("Going through bean '{}': '{}'", beanDefinition, bean);
             final var declaredFields = bean.getClass().getDeclaredFields();
 
@@ -159,7 +176,7 @@ public class Sigewine {
 
                     var beansToInject = getAllBeansThatAreAssignableFrom(collectionType);
                     log.debug("Injecting '{}' beans into bean named '{}' for collection named '{}' of type '{}'",
-                              beansToInject.size(), beanDefinition, field.getName(), collectionType.getName()
+                        beansToInject.size(), beanDefinition, field.getName(), collectionType.getName()
                     );
                     beansToInject.forEach(collection::addTypedObject);
                     field.setAccessible(wasAccessible);
@@ -167,14 +184,17 @@ public class Sigewine {
             }
         }
 
+        log.debug("Cleaning bean definitions...");
+        beanDefinitions.forEach(beanDefinition -> beanDefinition.getConstructorParameters().clear());
+
         log.info("Finished scanning package '{}', singleton bean count: '{}'", packageName, singletonBeans.size());
     }
 
     /**
      * Injects dependencies into the class.
      *
-     * @param clazz         Class to inject dependencies into
-     * @param <T>           Type of the class
+     * @param clazz Class to inject dependencies into
+     * @param <T>   Type of the class
      *
      * @return Instance of the class with dependencies injected
      */
@@ -222,6 +242,19 @@ public class Sigewine {
 
         log.debug("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length, beanDefinition, clazz.getName(), args);
         return clazz.cast(constructor.newInstance(args));
+    }
+
+    /**
+     * Adds a constellation to the Sigewine instance.
+     *
+     * @param constellation Constellation to add
+     */
+    public void addConstellation(@NonNull SigewineConstellation constellation) {
+        if (constellations.stream().anyMatch(c -> c.getClass().equals(constellation.getClass()))) {
+            throw new IllegalArgumentException("Constellation " + constellation.getClass().getSimpleName() + " is already registered");
+        }
+        log.debug("Adding constellation '{}' with priority '{}'", constellation.getClass().getSimpleName(), constellation.getPriority());
+        constellations.add(constellation);
     }
 
     /**
@@ -304,6 +337,7 @@ public class Sigewine {
                 }
             }
 
+            Collections.addAll(beanDefinition.getConstructorParameters(), args);
             beanInstance = constructor.newInstance(args);
         }
 
@@ -363,10 +397,10 @@ public class Sigewine {
      */
     protected Object getRegisteredBean(BeanDefinition beanDefinition) {
         return singletonBeans.entrySet().stream()
-                             .filter(entry -> entry.getKey().is(beanDefinition))
-                             .map(Map.Entry::getValue)
-                             .findFirst()
-                             .map(beanDefinition.getClazz()::cast)
-                             .orElseThrow(() -> new IllegalArgumentException("No bean found for " + beanDefinition));
+            .filter(entry -> entry.getKey().is(beanDefinition))
+            .map(Map.Entry::getValue)
+            .findFirst()
+            .map(beanDefinition.getClazz()::cast)
+            .orElseThrow(() -> new IllegalArgumentException("No bean found for " + beanDefinition));
     }
 }

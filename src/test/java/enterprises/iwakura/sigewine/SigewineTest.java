@@ -1,12 +1,19 @@
 package enterprises.iwakura.sigewine;
 
+import enterprises.iwakura.sigewine.annotations.ClassWrappedMethodWrapper;
+import enterprises.iwakura.sigewine.annotations.OtherAnnotationMethodWrapper;
+import enterprises.iwakura.sigewine.annotations.TransactionalMethodWrapper;
+import enterprises.iwakura.sigewine.aop.extension.AopConstellation;
 import enterprises.iwakura.sigewine.beans.BeanizedBean;
+import enterprises.iwakura.sigewine.core.*;
 import enterprises.iwakura.sigewine.services.DatabaseServerImpl;
 import enterprises.iwakura.sigewine.services.TeyvatService;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
+@Slf4j
 public class SigewineTest {
 
     @Test
@@ -16,6 +23,11 @@ public class SigewineTest {
         SigewineOptions sigewineOptions = SigewineOptions.builder()
             .build();
         Sigewine sigewine = new Sigewine(sigewineOptions);
+        AopConstellation aopConstellation = new AopConstellation(1);
+        aopConstellation.addMethodWrapper(new TransactionalMethodWrapper());
+        aopConstellation.addMethodWrapper(new OtherAnnotationMethodWrapper());
+        aopConstellation.addMethodWrapper(new ClassWrappedMethodWrapper());
+        sigewine.addConstellation(aopConstellation);
 
         // Act
         sigewine.treatment(SigewineTest.class);
@@ -54,5 +66,14 @@ public class SigewineTest {
         final var beanizedBeanLogLevel = beanizedBean.logLevel;
         Assertions.assertEquals(Level.ERROR, beanizedBeanLogLevel, "BeanizedBean log level should be ERROR");
         //@formatter:on
+
+        int ranTimes = ClassWrappedMethodWrapper.ranTimes;
+        teyvatService.someUnannotatedMethod();
+        Assertions.assertFalse(OtherAnnotationMethodWrapper.ran);
+        Assertions.assertFalse(TransactionalMethodWrapper.ran);
+        teyvatService.someAnnotatedMethod();
+        Assertions.assertTrue(OtherAnnotationMethodWrapper.ran);
+        Assertions.assertTrue(TransactionalMethodWrapper.ran);
+        Assertions.assertEquals(ranTimes + 2, ClassWrappedMethodWrapper.ranTimes);
     }
 }

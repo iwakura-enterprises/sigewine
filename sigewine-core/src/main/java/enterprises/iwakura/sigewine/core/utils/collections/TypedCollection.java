@@ -1,4 +1,4 @@
-package enterprises.iwakura.sigewine.utils.collections;
+package enterprises.iwakura.sigewine.core.utils.collections;
 
 /**
  * A generic interface representing a collection that enforces a specific type for its elements.

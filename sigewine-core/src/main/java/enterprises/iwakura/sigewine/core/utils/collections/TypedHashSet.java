@@ -1,6 +1,6 @@
-package enterprises.iwakura.sigewine.utils.collections;
+package enterprises.iwakura.sigewine.core.utils.collections;
 
-import enterprises.iwakura.sigewine.utils.Preconditions;
+import enterprises.iwakura.sigewine.core.utils.Preconditions;
 import lombok.Getter;
 
 import java.util.HashSet;

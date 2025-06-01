@@ -1,11 +1,14 @@
-package enterprises.iwakura.sigewine.annotations;
+package enterprises.iwakura.sigewine.core.annotations;
+
+import enterprises.iwakura.sigewine.core.Sigewine;
+import enterprises.iwakura.sigewine.core.utils.collections.TypedCollection;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to mark elements for the {@link enterprises.iwakura.sigewine.Sigewine} Dependency Injection (DI) framework.<br>
+ * Annotation to mark elements for the {@link Sigewine} Dependency Injection (DI) framework.<br>
  * 
  * <p>Usage:</p>
  * <ul>
@@ -13,7 +16,7 @@ import java.lang.annotation.Target;
  *   <li><b>Class:</b> Marks the class as a <b>bean</b>. The class must have either a <b>no-args constructor</b> or a constructor accepting other beans. 
  *       <b>Only one constructor is allowed.</b></li>
  *   <li><b>Parameter:</b> Specifies a bean to be injected into the class.</li>
- *   <li><b>Field:</b> Specifies a {@link enterprises.iwakura.sigewine.utils.collections.TypedCollection}. Beans will be injected based on the 
+ *   <li><b>Field:</b> Specifies a {@link TypedCollection}. Beans will be injected based on the
  *       <code>TypedCollection</code>'s type.</li>
  * </ul>
  */

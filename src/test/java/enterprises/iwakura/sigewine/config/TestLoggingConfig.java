@@ -1,6 +1,6 @@
 package enterprises.iwakura.sigewine.config;
 
-import enterprises.iwakura.sigewine.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
 import enterprises.iwakura.sigewine.beans.LoggingConfiguration;
 import org.slf4j.event.Level;
 

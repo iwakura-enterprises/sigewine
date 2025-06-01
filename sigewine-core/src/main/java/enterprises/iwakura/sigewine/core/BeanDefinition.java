@@ -1,6 +1,6 @@
-package enterprises.iwakura.sigewine;
+package enterprises.iwakura.sigewine.core;
 
-import enterprises.iwakura.sigewine.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NonNull;
@@ -9,22 +9,57 @@ import lombok.RequiredArgsConstructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+/**
+ * Represents a bean definition. Holds information about the bean's name, class, method, and constructor parameters.<br>
+ * Holds so called "bean score" which is the number of beans required to create this bean. If the bean is abstract or an interface, it will add a penalty to the score.
+ */
 @Data
 @AllArgsConstructor
 @RequiredArgsConstructor
 public class BeanDefinition {
 
+    /**
+     * Penalty for abstract beans or interfaces. This is added to the bean score if the bean is abstract or an interface.
+     */
     public static final long ABSTRACT_BEAN_PENALTY = 100_000L;
 
+    /**
+     * The name of the bean. If the bean is not named, this will be an empty string.
+     */
     private final @NonNull String name;
+
+    /**
+     * The class of the bean. This is the class that will be instantiated when the bean is created.
+     */
     private final @NonNull Class<?> clazz;
+
+    /**
+     * The method that defines this bean, if applicable. This is used for method-based beans.
+     */
     private final Method method;
+
+    /**
+     * The score of the bean. This is the number of beans required to create this bean.
+     */
     private long beanScore = -1;
 
+    /**
+     * The parameters of the constructor of this bean. This is used to create the bean.
+     */
+    private List<Object> constructorParameters = new ArrayList<>();
+
+    /**
+     * Create a new bean definition.
+     *
+     * @param clazz the class of the bean
+     *
+     * @return a new bean definition for the given class
+     */
     public static BeanDefinition of(Class<?> clazz) {
         return new BeanDefinition(
                 Optional.ofNullable(clazz.getAnnotation(RomaritimeBean.class))
@@ -35,6 +70,13 @@ public class BeanDefinition {
         );
     }
 
+    /**
+     * Create a new bean definition from a method parameter.
+     *
+     * @param parameter the method parameter to create the bean definition from
+     *
+     * @return a new bean definition for the given method parameter
+     */
     public static BeanDefinition of(Parameter parameter) {
         return new BeanDefinition(
                 Optional.ofNullable(parameter.getAnnotation(RomaritimeBean.class))
@@ -45,6 +87,13 @@ public class BeanDefinition {
         );
     }
 
+    /**
+     * Create a new bean definition from a method.
+     *
+     * @param method the method to create the bean definition from
+     *
+     * @return a new bean definition for the given method
+     */
     public static BeanDefinition of(Method method) {
         return new BeanDefinition(
                 Optional.ofNullable(method.getAnnotation(RomaritimeBean.class))
@@ -173,6 +222,17 @@ public class BeanDefinition {
         } else {
             throw new IllegalArgumentException("Class " + clazz.getName() + " has more than one constructor");
         }
+    }
+
+    /**
+     * Get the constructor parameter types of this bean.
+     *
+     * @return the constructor parameter types of this bean
+     */
+    public Class<?>[] getConstructorParameterTypes() {
+        return constructorParameters.stream()
+                                    .map(Object::getClass)
+                                    .toArray(Class<?>[]::new);
     }
 
     @Override

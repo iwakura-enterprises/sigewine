@@ -9,6 +9,10 @@ There is no reason for you to use this library for such functionality;
 use [Dagger 2](https://github.com/google/dagger) for example, which provides
 more features and support. This is just a little fun project of mine.
 
+## Project structure
+- `sigewine-core`: The core library that provides the dependency injection functionality.
+- `sigewine-aop`: Contains AOP-like Proxy functionality to allow wrap beans. For example, to log method calls or to add transaction management.
+
 ## Installation
 - Required dependency: [org.reflections](https://mvnrepository.com/artifact/org.reflections/reflections/0.10.2)
 
@@ -17,13 +21,13 @@ more features and support. This is just a little fun project of mine.
 <dependency>
     <groupId>enterprises.iwakura</groupId>
     <artifactId>sigewine</artifactId>
-    <version>1.1.1</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
 ### Gradle
 ```groovy
-implementation 'enterprises.iwakura:sigewine:1.1.1'
+implementation 'enterprises.iwakura:sigewine:2.0.0'
 ```
 
 ## Usage

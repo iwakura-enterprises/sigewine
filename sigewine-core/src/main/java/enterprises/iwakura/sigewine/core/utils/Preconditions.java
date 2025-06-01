@@ -1,6 +1,6 @@
-package enterprises.iwakura.sigewine.utils;
+package enterprises.iwakura.sigewine.core.utils;
 
-import enterprises.iwakura.sigewine.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
 
 import java.lang.reflect.Method;
 
