@@ -1,7 +1,6 @@
 package enterprises.iwakura.sigewine.core;
 
 import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
-import enterprises.iwakura.sigewine.core.extension.BaseSigewineConstellation;
 import enterprises.iwakura.sigewine.core.extension.SigewineConstellation;
 import enterprises.iwakura.sigewine.core.utils.Preconditions;
 import enterprises.iwakura.sigewine.core.utils.collections.TypedCollection;
@@ -46,7 +45,7 @@ public class Sigewine {
     /**
      * List of constellations to extend the functionality of Sigewine.
      */
-    protected final List<SigewineConstellation> constellations = new ArrayList<>(List.of(new BaseSigewineConstellation()));
+    protected final List<SigewineConstellation> constellations = new ArrayList<>(List.of());
     /**
      * Map of beans registered in the DI container.
      */
@@ -105,9 +104,8 @@ public class Sigewine {
                 .filterInputsBy(new FilterBuilder().includePackage(packageName));
         config.setClassLoaders(new ClassLoader[] {classLoader});
         final var reflections = new Reflections(config);
-        final var allBeanAnnotations = constellations.stream().map(SigewineConstellation::getBeanAnnotations).flatMap(Collection::stream).distinct().toList();
-        final var annotatedClasses = allBeanAnnotations.stream().map(reflections::getTypesAnnotatedWith).flatMap(Collection::stream).distinct().toList();
-        final var annotatedMethods = allBeanAnnotations.stream().map(reflections::getMethodsAnnotatedWith).flatMap(Collection::stream).distinct().toList();
+        final var annotatedClasses = reflections.getTypesAnnotatedWith(RomaritimeBean.class);
+        final var annotatedMethods = reflections.getMethodsAnnotatedWith(RomaritimeBean.class);
 
         log.info("Found '{}' classes annotated with bean annotation", annotatedClasses.size());
         log.info("Found '{}' methods annotated with bean annotation", annotatedMethods.size());
@@ -152,7 +150,7 @@ public class Sigewine {
             final var declaredFields = bean.getClass().getDeclaredFields();
 
             for (var field : declaredFields) {
-                var annotationPresent = allBeanAnnotations.stream().anyMatch(field::isAnnotationPresent);
+                var annotationPresent = field.isAnnotationPresent(RomaritimeBean.class);
                 var isCollection = Collection.class.isAssignableFrom(field.getType());
 
                 if (annotationPresent && isCollection) {

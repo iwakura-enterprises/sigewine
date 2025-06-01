@@ -11,7 +11,6 @@ more features and support. This is just a little fun project of mine.
 
 ## Project structure
 - `sigewine-core`: The core library that provides the dependency injection functionality.
-- `sigewine-spring`: Contains the Spring annotation that will allow IDE to treat them as if they were Spring beans.
 - `sigewine-aop`: Contains AOP-like Proxy functionality to allow wrap beans. For example, to log method calls or to add transaction management.
 
 ## Installation

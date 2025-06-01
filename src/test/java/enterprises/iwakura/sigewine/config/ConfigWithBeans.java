@@ -11,7 +11,7 @@ public class ConfigWithBeans {
     private final LoggingConfiguration loggingConfiguration;
     private final BaseDatabaseService service;
 
-    public ConfigWithBeans(@RomaritimeBean(name = "errorLogging") LoggingConfiguration loggingConfiguration, @RomaritimeBean BaseDatabaseService service) {
+    public ConfigWithBeans(@RomaritimeBean(value = "errorLogging") LoggingConfiguration loggingConfiguration, @RomaritimeBean BaseDatabaseService service) {
         this.loggingConfiguration = loggingConfiguration;
         this.service = service;
     }

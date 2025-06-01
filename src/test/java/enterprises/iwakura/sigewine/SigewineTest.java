@@ -23,7 +23,7 @@ public class SigewineTest {
         SigewineOptions sigewineOptions = SigewineOptions.builder()
             .build();
         Sigewine sigewine = new Sigewine(sigewineOptions);
-        AopConstellation aopConstellation = new AopConstellation();
+        AopConstellation aopConstellation = new AopConstellation(1);
         aopConstellation.addMethodWrapper(new TransactionalMethodWrapper());
         aopConstellation.addMethodWrapper(new OtherAnnotationMethodWrapper());
         aopConstellation.addMethodWrapper(new ClassWrappedMethodWrapper());

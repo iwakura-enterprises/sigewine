@@ -2,4 +2,3 @@ rootProject.name = 'sigewine'
 
 include 'sigewine-core'
 include 'sigewine-aop'
-include 'sigewine-spring'

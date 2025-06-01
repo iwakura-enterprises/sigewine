@@ -9,10 +9,10 @@ plugins {
     id "tech.medivh.plugin.publisher" version "1.2.3"
 }
 
-subprojects {
+allprojects {
 
     group = 'enterprises.iwakura'
-    version = '1.3.0'
+    version = '2.0.0'
 
     apply plugin: 'java'
     apply plugin: 'java-library'
@@ -64,7 +64,7 @@ subprojects {
     task publishCloseAndRelease() {
         dependsOn 'cleanBuildMedivhMavenRepo'
         dependsOn 'uploadToSonatype'
-        // TODO publish
+        dependsOn 'publishDeployment'
     }
 
     shadowJar {
@@ -138,7 +138,7 @@ jacocoTestReport {
 
 shadowJar {
     archiveBaseName.set('sigewine')
-    archiveVersion.set('1.3.0')
+    archiveVersion.set(version)
     archiveClassifier.set('all')
     destinationDirectory = file("$buildDir/libs")
 

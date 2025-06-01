@@ -1,20 +1,26 @@
 package enterprises.iwakura.sigewine.core.extension;
 
 import enterprises.iwakura.sigewine.core.Sigewine;
-import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-import java.util.List;
-
+/**
+ * Represents an extension for Sigewine, allowing for custom processing of beans.
+ */
 @Getter
 @RequiredArgsConstructor
 public abstract class SigewineConstellation {
 
+    /**
+     * Priority of the constellation, used to determine the order of processing. Smaller values are processed first.
+     */
     protected final int priority;
 
-    public abstract List<Class<RomaritimeBean>> getBeanAnnotations();
-
+    /**
+     * Processes the beans in the given Sigewine instance.
+     *
+     * @param sigewine the Sigewine instance containing the beans to process
+     */
     public abstract void processBeans(Sigewine sigewine);
 
 }

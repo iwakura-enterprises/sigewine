@@ -13,7 +13,7 @@ public class SecondWhoCameService {
 
     public SecondWhoCameService(
             PrimordialService primordialService,
-            @RomaritimeBean(name = "debugLogging")
+            @RomaritimeBean(value = "debugLogging")
             LoggingConfiguration loggingConfiguration
     ) {
         this.primordialService = primordialService;

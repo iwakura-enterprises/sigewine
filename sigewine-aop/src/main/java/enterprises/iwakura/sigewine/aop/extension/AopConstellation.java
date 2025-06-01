@@ -3,7 +3,6 @@ package enterprises.iwakura.sigewine.aop.extension;
 import enterprises.iwakura.sigewine.aop.MethodWrapper;
 import enterprises.iwakura.sigewine.core.Sigewine;
 import enterprises.iwakura.sigewine.aop.SigewineInvocationHandler;
-import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
 import enterprises.iwakura.sigewine.core.extension.SigewineConstellation;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +14,9 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 
+/**
+ * AOP extension for Sigewine that creates proxies for beans with annotated methods.
+ */
 @Slf4j
 public class AopConstellation extends SigewineConstellation {
 
@@ -23,10 +25,19 @@ public class AopConstellation extends SigewineConstellation {
      */
     protected final ByteBuddy byteBuddy = new ByteBuddy();
 
+    /**
+     * Map of method wrappers for different annotations.
+     * The key is the annotation class, and the value is the method wrapper for that annotation.
+     */
     protected final Map<Class<? extends Annotation>, MethodWrapper<? extends Annotation>> methodWrapperMap = new HashMap<>();
 
-    public AopConstellation() {
-        super(1);
+    /**
+     * Creates a new AopConstellation with specified priority.
+     *
+     * @param priority Priority of the constellation, lower values are processed first
+     */
+    public AopConstellation(int priority) {
+        super(priority);
     }
 
     /**
@@ -36,11 +47,6 @@ public class AopConstellation extends SigewineConstellation {
      */
     public void addMethodWrapper(MethodWrapper<?> methodWrapper) {
         methodWrapperMap.put(methodWrapper.getAnnotationClass(), methodWrapper);
-    }
-
-    @Override
-    public List<Class<RomaritimeBean>> getBeanAnnotations() {
-        return List.of();
     }
 
     @SneakyThrows

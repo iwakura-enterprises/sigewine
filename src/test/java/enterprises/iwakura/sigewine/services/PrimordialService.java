@@ -10,7 +10,7 @@ public class PrimordialService {
 
     private final LoggingConfiguration loggingConfiguration; // Will be info
 
-    public PrimordialService(@RomaritimeBean(name = "errorLogging") LoggingConfiguration loggingConfiguration) {
+    public PrimordialService(@RomaritimeBean(value = "errorLogging") LoggingConfiguration loggingConfiguration) {
         this.loggingConfiguration = loggingConfiguration;
     }
 

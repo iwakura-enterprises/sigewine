@@ -14,12 +14,12 @@ public class TestLoggingConfig {
         return new LoggingConfiguration(Level.INFO);
     }
 
-    @RomaritimeBean(name = "errorLogging")
+    @RomaritimeBean(value = "errorLogging")
     public LoggingConfiguration errorLoggingConfig() {
         return new LoggingConfiguration(Level.ERROR);
     }
 
-    @RomaritimeBean(name = "debugLogging")
+    @RomaritimeBean(value = "debugLogging")
     public LoggingConfiguration debugLoggingConfig() {
         return new LoggingConfiguration(Level.DEBUG);
     }
