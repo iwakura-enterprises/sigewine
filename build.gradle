@@ -131,8 +131,18 @@ test {
 }
 
 jacocoTestReport {
+    dependsOn = subprojects.test
+
+    additionalSourceDirs.from = subprojects.sourceSets.main.allSource.srcDirs
+    sourceDirectories.from = subprojects.sourceSets.main.allSource.srcDirs
+    classDirectories.from = subprojects.sourceSets.main.output
+
+    executionData fileTree(project.rootDir.absolutePath).include("**/build/jacoco/*.exec")
+
     reports {
-        csv.required.set(true)
+        html.required = true
+        xml.required = true
+        csv.required = true
     }
 }
 

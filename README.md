@@ -1,7 +1,7 @@
 # Sigewine
 Sigewine is a Java library for simple and lightweight dependency injection.
 
-![Coverage](.github/badges/jacoco.svg)
+![Coverage](.github/badges/jacoco.svg) [![Build & Test](https://github.com/iwakura-enterprises/sigewine/actions/workflows/build.yml/badge.svg)](https://github.com/iwakura-enterprises/sigewine/actions/workflows/build.yml)
 
 > Disclaimer: The library name is not related to any character in any game or media.
 
