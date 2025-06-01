@@ -1,5 +1,12 @@
 plugins {
     id 'java'
+    id 'signing'
+    id 'maven-publish'
+    id "com.github.johnrengelman.shadow" version "8.1.1"
+    id 'jacoco'
+    id 'jacoco-report-aggregation'
+
+    id "tech.medivh.plugin.publisher" version "1.2.3"
 }
 
 repositories {

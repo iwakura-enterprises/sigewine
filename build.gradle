@@ -1,6 +1,5 @@
 plugins {
     id 'java'
-    id 'java-library'
     id 'signing'
     id 'maven-publish'
     id "com.github.johnrengelman.shadow" version "8.1.1"
@@ -30,10 +29,6 @@ subprojects {
     }
 
     dependencies {
-        // https://mvnrepository.com/artifact/org.reflections/reflections/0.10.2
-        implementation 'org.reflections:reflections:0.10.2'
-        testImplementation 'org.reflections:reflections:0.10.2'
-
         // https://mvnrepository.com/artifact/org.slf4j/slf4j-api/2.0.17
         implementation 'org.slf4j:slf4j-api:2.0.17'
 
@@ -42,9 +37,6 @@ subprojects {
         annotationProcessor 'org.projectlombok:lombok:1.18.38'
         testCompileOnly 'org.projectlombok:lombok:1.18.38'
         testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
-
-        // https://mvnrepository.com/artifact/net.bytebuddy/byte-buddy
-        implementation 'net.bytebuddy:byte-buddy:1.17.5'
 
         testImplementation platform('org.junit:junit-bom:5.10.0')
         testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -72,6 +64,7 @@ subprojects {
     task publishCloseAndRelease() {
         dependsOn 'cleanBuildMedivhMavenRepo'
         dependsOn 'uploadToSonatype'
+        // TODO publish
     }
 
     shadowJar {
@@ -106,20 +99,41 @@ subprojects {
         withJavadocJar()
         withSourcesJar()
     }
-
-    shadowJar.dependsOn javadocJar
-    shadowJar.dependsOn sourcesJar
-    shadowJar.dependsOn jar
-
-    components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) {
-        skip()
-    }
 }
 
 repositories {
+    mavenCentral()
 }
 
 dependencies {
+    testImplementation project(":sigewine-core")
+    testImplementation project(":sigewine-aop")
+
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api/2.0.17
+    testImplementation 'org.slf4j:slf4j-api:2.0.17'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
+    testCompileOnly 'org.projectlombok:lombok:1.18.38'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+
+    testImplementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.23.1'
+    testImplementation 'org.apache.logging.log4j:log4j-core:2.23.1'
+}
+
+test {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    reports {
+        csv.required.set(true)
+    }
 }
 
 shadowJar {
@@ -131,10 +145,5 @@ shadowJar {
     // Include all subprojects
     subprojects.each { subproject ->
         from(subproject.sourceSets.main.output)
-        subproject.configurations.runtimeClasspath.each { file ->
-            if (file.exists()) {
-                from(zipTree(file))
-            }
-        }
     }
 }

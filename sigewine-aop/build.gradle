@@ -7,6 +7,10 @@ repositories {
 }
 
 dependencies {
+    implementation project(':sigewine-core')
+
+    // https://mvnrepository.com/artifact/net.bytebuddy/byte-buddy
+    implementation 'net.bytebuddy:byte-buddy:1.17.5'
 }
 
 test {
