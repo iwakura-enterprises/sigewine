@@ -9,6 +9,11 @@ There is no reason for you to use this library for such functionality;
 use [Dagger 2](https://github.com/google/dagger) for example, which provides
 more features and support. This is just a little fun project of mine.
 
+## Project structure
+- `sigewine-core`: The core library that provides the dependency injection functionality.
+- `sigewine-spring`: Contains the Spring annotation that will allow IDE to treat them as if they were Spring beans.
+- `sigewine-aop`: Contains AOP-like Proxy functionality to allow wrap beans. For example, to log method calls or to add transaction management.
+
 ## Installation
 - Required dependency: [org.reflections](https://mvnrepository.com/artifact/org.reflections/reflections/0.10.2)
 

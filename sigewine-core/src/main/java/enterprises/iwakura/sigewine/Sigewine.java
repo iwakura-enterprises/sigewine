@@ -12,10 +12,7 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * Main entry point to the Sigewine Dependency Injection (DI) API.
