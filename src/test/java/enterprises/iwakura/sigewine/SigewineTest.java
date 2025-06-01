@@ -10,11 +10,21 @@ import enterprises.iwakura.sigewine.services.DatabaseServerImpl;
 import enterprises.iwakura.sigewine.services.TeyvatService;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
 @Slf4j
 public class SigewineTest {
+
+    @BeforeEach
+    public void reset() {
+        // Reset static fields before each test
+        ClassWrappedMethodWrapper.ranTimes = 0;
+        OtherAnnotationMethodWrapper.ran = false;
+        TransactionalMethodWrapper.ran = false;
+    }
 
     @Test
     public void run_defaultOptions() {

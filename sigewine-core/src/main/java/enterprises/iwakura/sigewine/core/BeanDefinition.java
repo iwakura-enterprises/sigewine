@@ -259,7 +259,7 @@ public class BeanDefinition {
     private static long sumBeanScoresOfRelatedBeanDefinitions(Class<?> clazz, Set<BeanDefinition> beanDefinitions) {
         return beanDefinitions.stream()
                               .filter(beanDefinition -> beanDefinition.is(BeanDefinition.of(clazz)))
-                              .mapToLong(BeanDefinition::getBeanScore)
+                              .mapToLong(beanDefinition -> beanDefinition.computeBeanScore(beanDefinitions))
                               .sum();
     }
 }

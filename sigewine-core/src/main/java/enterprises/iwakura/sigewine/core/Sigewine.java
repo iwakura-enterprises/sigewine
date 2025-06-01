@@ -117,7 +117,8 @@ public class Sigewine {
         log.debug("Sorting bean definitions...");
         //@formatter:off
         var sortedBeanDefinitions = beanDefinitions.stream()
-                .sorted(Comparator.comparingLong(definition -> definition.computeBeanScore(beanDefinitions)))
+                .peek(beanDefinition -> beanDefinition.computeBeanScore(beanDefinitions))
+                .sorted(Comparator.comparingLong(BeanDefinition::getBeanScore))
                 .toList();
         //@formatter:on
 
