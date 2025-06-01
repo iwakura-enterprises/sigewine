@@ -21,13 +21,13 @@ more features and support. This is just a little fun project of mine.
 <dependency>
     <groupId>enterprises.iwakura</groupId>
     <artifactId>sigewine</artifactId>
-    <version>1.1.1</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
 ### Gradle
 ```groovy
-implementation 'enterprises.iwakura:sigewine:1.1.1'
+implementation 'enterprises.iwakura:sigewine:2.0.0'
 ```
 
 ## Usage
