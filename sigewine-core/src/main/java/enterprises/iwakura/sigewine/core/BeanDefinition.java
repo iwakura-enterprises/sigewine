@@ -24,9 +24,9 @@ import java.util.stream.Stream;
 public class BeanDefinition {
 
     /**
-     * Penalty for abstract beans or interfaces. This is added to the bean score if the bean is abstract or an interface.
+     * Penalty for abstract beans, interfaces or classes without RomaritimeBean annotation.
      */
-    public static final long ABSTRACT_BEAN_PENALTY = 100_000L;
+    public static final long BEAN_SCORE_PENALTY = 100_000L;
 
     /**
      * The name of the bean. If the bean is not named, this will be an empty string.
@@ -181,10 +181,15 @@ public class BeanDefinition {
                     for (var parameter : parameters) {
                         if (Modifier.isAbstract(parameter.getType().getModifiers()) || parameter.getType().isInterface()) {
                             // Abstract class, add penalty
-                            parameterBeans += ABSTRACT_BEAN_PENALTY;
+                            parameterBeans += BEAN_SCORE_PENALTY;
                         }
 
-                        parameterBeans += BeanDefinition.of(parameter).computeBeanScore();
+                        final var parameterClass = parameter.getType();
+                        if (!parameterClass.isAnnotationPresent(RomaritimeBean.class)) {
+                            parameterBeans += BEAN_SCORE_PENALTY;
+                        } else {
+                            parameterBeans += BeanDefinition.of(parameter).computeBeanScore();
+                        }
                     }
 
                     // No RomaritimeBean annotation, return the number of parameters
