@@ -1,12 +1,19 @@
 package enterprises.iwakura.sigewine;
 
+import enterprises.iwakura.sigewine.annotations.ClassWrappedMethodWrapper;
+import enterprises.iwakura.sigewine.annotations.OtherAnnotationMethodWrapper;
+import enterprises.iwakura.sigewine.annotations.TransactionalMethodWrapper;
 import enterprises.iwakura.sigewine.beans.BeanizedBean;
 import enterprises.iwakura.sigewine.services.DatabaseServerImpl;
 import enterprises.iwakura.sigewine.services.TeyvatService;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
+import java.lang.reflect.InvocationTargetException;
+
+@Slf4j
 public class SigewineTest {
 
     @Test
@@ -16,6 +23,9 @@ public class SigewineTest {
         SigewineOptions sigewineOptions = SigewineOptions.builder()
             .build();
         Sigewine sigewine = new Sigewine(sigewineOptions);
+        sigewine.addMethodWrapper(new TransactionalMethodWrapper());
+        sigewine.addMethodWrapper(new OtherAnnotationMethodWrapper());
+        sigewine.addMethodWrapper(new ClassWrappedMethodWrapper());
 
         // Act
         sigewine.treatment(SigewineTest.class);
@@ -54,5 +64,32 @@ public class SigewineTest {
         final var beanizedBeanLogLevel = beanizedBean.logLevel;
         Assertions.assertEquals(Level.ERROR, beanizedBeanLogLevel, "BeanizedBean log level should be ERROR");
         //@formatter:on
+
+        int ranTimes = ClassWrappedMethodWrapper.ranTimes;
+        teyvatService.someUnannotatedMethod();
+        Assertions.assertFalse(OtherAnnotationMethodWrapper.ran);
+        Assertions.assertFalse(TransactionalMethodWrapper.ran);
+        teyvatService.someAnnotatedMethod();
+        Assertions.assertTrue(OtherAnnotationMethodWrapper.ran);
+        Assertions.assertTrue(TransactionalMethodWrapper.ran);
+        Assertions.assertEquals(ranTimes + 2, ClassWrappedMethodWrapper.ranTimes);
+    }
+
+    @Test
+    public void proxyTest() throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        //final var byteBuddy = new ByteBuddy();
+//
+        //SomeService someService = new SomeService();
+        //SomeService someServiceProxy = new ByteBuddy()
+        //        .subclass(SomeService.class)
+        //        .method(AnnotationTypeMatcher)
+        //        .intercept(InvocationHandlerAdapter.of(new SigewineInvocationHandler<>(someService)))
+        //        .make()
+        //        .load(SigewineTest.class.getClassLoader())
+        //        .getLoaded()
+        //        .getDeclaredConstructor()
+        //        .newInstance();
+//
+        //someServiceProxy.someMethod();
     }
 }

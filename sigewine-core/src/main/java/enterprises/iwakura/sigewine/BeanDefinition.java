@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -24,6 +25,7 @@ public class BeanDefinition {
     private final @NonNull Class<?> clazz;
     private final Method method;
     private long beanScore = -1;
+    private List<Object> constructorParameters = new ArrayList<>();
 
     public static BeanDefinition of(Class<?> clazz) {
         return new BeanDefinition(
@@ -173,6 +175,17 @@ public class BeanDefinition {
         } else {
             throw new IllegalArgumentException("Class " + clazz.getName() + " has more than one constructor");
         }
+    }
+
+    /**
+     * Get the constructor parameter types of this bean.
+     *
+     * @return the constructor parameter types of this bean
+     */
+    public Class<?>[] getConstructorParameterTypes() {
+        return constructorParameters.stream()
+                                    .map(Object::getClass)
+                                    .toArray(Class<?>[]::new);
     }
 
     @Override

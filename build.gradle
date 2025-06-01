@@ -43,6 +43,9 @@ subprojects {
         testCompileOnly 'org.projectlombok:lombok:1.18.38'
         testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
 
+        // https://mvnrepository.com/artifact/net.bytebuddy/byte-buddy
+        implementation 'net.bytebuddy:byte-buddy:1.17.5'
+
         testImplementation platform('org.junit:junit-bom:5.10.0')
         testImplementation 'org.junit.jupiter:junit-jupiter'
 

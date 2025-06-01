@@ -6,12 +6,17 @@ import enterprises.iwakura.sigewine.utils.collections.TypedCollection;
 import lombok.Data;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.implementation.InvocationHandlerAdapter;
+import net.bytebuddy.matcher.ElementMatchers;
 import org.reflections.Reflections;
 import org.reflections.scanners.Scanners;
 import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.util.*;
 
 /**
@@ -37,21 +42,26 @@ public class Sigewine {
      * Sigewine options.
      */
     protected final SigewineOptions sigewineOptions;
-
     /**
      * Map of beans registered in the DI container.
      */
     protected final Map<BeanDefinition, Object> singletonBeans = new HashMap<>();
-
     /**
      * List of classes that have method beans that need to be initialized later.
      */
     protected final List<Class<?>> initializeLaterMethodBeans = new ArrayList<>();
-
     /**
      * Cache for method bean declaring classes.
      */
     protected final Map<Class<?>, Object> methodBeanDeclaringClassCache = new HashMap<>();
+    /**
+     * Map of method wrappers for methods annotated with specific annotation
+     */
+    protected final Map<Class<? extends Annotation>, MethodWrapper<? extends Annotation>> methodWrapperMap = new HashMap<>();
+    /**
+     * ByteBuddy instance for creating proxies.
+     */
+    protected final ByteBuddy byteBuddy = new ByteBuddy();
 
     /**
      * Constructor for Sigewine.
@@ -121,11 +131,44 @@ public class Sigewine {
             }
         }
 
+        // Keep original beans, used when initializing typed collections
+        final var proxiedOriginalBeans = new HashMap<BeanDefinition, Object>();
+
+        log.debug("Creating proxies for beans...");
+        for (var entry : singletonBeans.entrySet()) {
+            final var beanDefinition = entry.getKey();
+            final var originalBean = entry.getValue();
+            final var methodWrappers = getMethodWrappersForObject(originalBean);
+
+            if (!methodWrappers.isEmpty()) {
+                // Add the original bean to the map
+                proxiedOriginalBeans.put(beanDefinition, originalBean);
+                var beanToProxy = originalBean;
+
+                log.debug("Creating proxy for bean '{}': '{}'", beanDefinition, methodWrappers);
+
+                final var sigewineProxy = new SigewineInvocationHandler(methodWrappers, beanToProxy);
+
+                beanToProxy = byteBuddy
+                        .subclass(beanToProxy.getClass())
+                        .method(ElementMatchers.any()) // Match all methods since proxied bean does not have the methods annotated anymore
+                        .intercept(InvocationHandlerAdapter.of(sigewineProxy))
+                        .make()
+                        .load(beanToProxy.getClass().getClassLoader())
+                        .getLoaded()
+                        .getConstructors()[0] // We have already checked that the class has a constructor
+                        .newInstance(beanDefinition.getConstructorParameters().toArray());
+                singletonBeans.put(beanDefinition, beanToProxy);
+            }
+        }
+        log.debug("Created '{}' bean proxies", proxiedOriginalBeans.size());
+
         // Inject beans into collections
         log.debug("Going through beans to inject beans into TypedCollections");
         for (Map.Entry<BeanDefinition, Object> beanEntry : singletonBeans.entrySet()) {
             final var beanDefinition = beanEntry.getKey();
-            final var bean = beanEntry.getValue();
+            // Prefer original bean since it might be a proxy and we need the original instance
+            final var bean = Optional.ofNullable(proxiedOriginalBeans.get(beanDefinition)).orElse(beanEntry.getValue());
             log.debug("Going through bean '{}': '{}'", beanDefinition, bean);
             final var declaredFields = bean.getClass().getDeclaredFields();
 
@@ -164,14 +207,65 @@ public class Sigewine {
             }
         }
 
+        log.debug("Cleaning bean definitions...");
+        beanDefinitions.forEach(beanDefinition -> beanDefinition.getConstructorParameters().clear());
+
         log.info("Finished scanning package '{}', singleton bean count: '{}'", packageName, singletonBeans.size());
+    }
+
+    /**
+     * Returns a list of method wrappers for the given object that should be used.
+     *
+     * @param bean Object to get the wrappers for
+     *
+     * @return List of method wrappers for the object
+     */
+    protected List<MethodWrapper<?>> getMethodWrappersForObject(Object bean) {
+        final var methodWrappers = new ArrayList<MethodWrapper<?>>();
+
+        // Get all annotations from the class and methods
+        final var annotations = new ArrayList<>(List.of(bean.getClass().getAnnotations()));
+        for (Method declaredMethod : bean.getClass().getDeclaredMethods()) {
+            Collections.addAll(annotations, declaredMethod.getAnnotations());
+        }
+
+        for (var annotation : annotations) {
+            final var methodWrapper = methodWrapperMap.get(annotation.annotationType());
+            if (methodWrapper != null) {
+                methodWrappers.add(methodWrapper);
+            }
+        }
+
+        return methodWrappers;
+    }
+
+    /**
+     * Gets the method wrappers for a method.
+     *
+     * @param method Method to get the wrappers for
+     *
+     * @return List of method wrappers for the method
+     */
+    protected List<MethodWrapper<?>> getMethodWrappersForMethod(Method method) {
+        final var methodWrappers = new ArrayList<MethodWrapper<?>>();
+
+        for (var entry : methodWrapperMap.entrySet()) {
+            final var annotationClass = entry.getKey();
+            final var methodWrapper = entry.getValue();
+
+            if (method.isAnnotationPresent(annotationClass)) {
+                methodWrappers.add(methodWrapper);
+            }
+        }
+
+        return methodWrappers;
     }
 
     /**
      * Injects dependencies into the class.
      *
-     * @param clazz         Class to inject dependencies into
-     * @param <T>           Type of the class
+     * @param clazz Class to inject dependencies into
+     * @param <T>   Type of the class
      *
      * @return Instance of the class with dependencies injected
      */
@@ -219,6 +313,15 @@ public class Sigewine {
 
         log.debug("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length, beanDefinition, clazz.getName(), args);
         return clazz.cast(constructor.newInstance(args));
+    }
+
+    /**
+     * Adds a method wrapper to the method wrapper map.
+     *
+     * @param methodWrapper Method wrapper to add
+     */
+    public void addMethodWrapper(MethodWrapper<?> methodWrapper) {
+        methodWrapperMap.put(methodWrapper.getAnnotationClass(), methodWrapper);
     }
 
     /**
@@ -301,6 +404,7 @@ public class Sigewine {
                 }
             }
 
+            Collections.addAll(beanDefinition.getConstructorParameters(), args);
             beanInstance = constructor.newInstance(args);
         }
 
