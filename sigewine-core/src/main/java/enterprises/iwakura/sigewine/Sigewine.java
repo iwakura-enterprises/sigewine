@@ -1,29 +1,30 @@
 package enterprises.iwakura.sigewine;
 
 import enterprises.iwakura.sigewine.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.extension.BaseSigewineConstellation;
+import enterprises.iwakura.sigewine.extension.SigewineConstellation;
 import enterprises.iwakura.sigewine.utils.Preconditions;
 import enterprises.iwakura.sigewine.utils.collections.TypedCollection;
 import lombok.Data;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import net.bytebuddy.ByteBuddy;
-import net.bytebuddy.implementation.InvocationHandlerAdapter;
-import net.bytebuddy.matcher.ElementMatchers;
 import org.reflections.Reflections;
 import org.reflections.scanners.Scanners;
 import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
 import java.util.*;
 
 /**
  * Main entry point to the Sigewine Dependency Injection (DI) API.
  * <p>
  * This class provides functionality for scanning, registering, and injecting beans
- * (classes or methods annotated with {@link RomaritimeBean}) into a dependency graph.
+ * (classes or methods annotated with {@link RomaritimeBean} or the extension of it) into a dependency graph.
+ * </p>
+ * <p>
+ * You may add additional functionality by implementing the {@link SigewineConstellation} interface and adding it to the Sigewine instance.
  * </p>
  * <p>
  * <b>Usage:</b>
@@ -43,6 +44,10 @@ public class Sigewine {
      */
     protected final SigewineOptions sigewineOptions;
     /**
+     * List of constellations to extend the functionality of Sigewine.
+     */
+    protected final List<SigewineConstellation> constellations = new ArrayList<>(List.of(new BaseSigewineConstellation()));
+    /**
      * Map of beans registered in the DI container.
      */
     protected final Map<BeanDefinition, Object> singletonBeans = new HashMap<>();
@@ -55,14 +60,10 @@ public class Sigewine {
      */
     protected final Map<Class<?>, Object> methodBeanDeclaringClassCache = new HashMap<>();
     /**
-     * Map of method wrappers for methods annotated with specific annotation
+     * Map of original beans that are proxied. This is used to keep track of the original bean instances
+     * when they are proxied by the AOP constellation or any other constellation that creates proxies.
      */
-    protected final Map<Class<? extends Annotation>, MethodWrapper<? extends Annotation>> methodWrapperMap = new HashMap<>();
-    /**
-     * ByteBuddy instance for creating proxies.
-     */
-    protected final ByteBuddy byteBuddy = new ByteBuddy();
-
+    protected final Map<BeanDefinition, Object> proxiedOriginalBeans = new HashMap<>();
     /**
      * Constructor for Sigewine.
      *
@@ -86,8 +87,8 @@ public class Sigewine {
      * <p>
      * This method performs the following steps:
      * <ol>
-     *     <li>Scans for methods annotated with {@link RomaritimeBean} and registers them as beans.</li>
-     *     <li>Scans for classes annotated with {@link RomaritimeBean} and registers them as beans.</li>
+     *     <li>Scans for methods annotated with {@link RomaritimeBean} (or the extension of it) and registers their return values as beans.</li>
+     *     <li>Scans for classes annotated with {@link RomaritimeBean} (or the extension of it) and registers them as beans.</li>
      *     <li>Injects beans into fields of type {@link TypedCollection}.</li>
      * </ol>
      *
@@ -104,11 +105,12 @@ public class Sigewine {
                 .filterInputsBy(new FilterBuilder().includePackage(packageName));
         config.setClassLoaders(new ClassLoader[] {classLoader});
         final var reflections = new Reflections(config);
-        final var annotatedClasses = reflections.getTypesAnnotatedWith(RomaritimeBean.class);
-        final var annotatedMethods = reflections.getMethodsAnnotatedWith(RomaritimeBean.class);
+        final var allBeanAnnotations = constellations.stream().map(SigewineConstellation::getBeanAnnotations).flatMap(Collection::stream).distinct().toList();
+        final var annotatedClasses = allBeanAnnotations.stream().map(reflections::getTypesAnnotatedWith).flatMap(Collection::stream).distinct().toList();
+        final var annotatedMethods = allBeanAnnotations.stream().map(reflections::getMethodsAnnotatedWith).flatMap(Collection::stream).distinct().toList();
 
-        log.info("Found '{}' classes annotated with @Romaritime", annotatedClasses.size());
-        log.info("Found '{}' methods annotated with @Romaritime", annotatedMethods.size());
+        log.info("Found '{}' classes annotated with bean annotation", annotatedClasses.size());
+        log.info("Found '{}' methods annotated with bean annotation", annotatedMethods.size());
 
         var beanDefinitions = new HashSet<BeanDefinition>();
         annotatedClasses.forEach(clazz -> beanDefinitions.add(BeanDefinition.of(clazz)));
@@ -131,37 +133,14 @@ public class Sigewine {
             }
         }
 
-        // Keep original beans, used when initializing typed collections
-        final var proxiedOriginalBeans = new HashMap<BeanDefinition, Object>();
-
-        log.debug("Creating proxies for beans...");
-        for (var entry : singletonBeans.entrySet()) {
-            final var beanDefinition = entry.getKey();
-            final var originalBean = entry.getValue();
-            final var methodWrappers = getMethodWrappersForObject(originalBean);
-
-            if (!methodWrappers.isEmpty()) {
-                // Add the original bean to the map
-                proxiedOriginalBeans.put(beanDefinition, originalBean);
-                var beanToProxy = originalBean;
-
-                log.debug("Creating proxy for bean '{}': '{}'", beanDefinition, methodWrappers);
-
-                final var sigewineProxy = new SigewineInvocationHandler(methodWrappers, beanToProxy);
-
-                beanToProxy = byteBuddy
-                        .subclass(beanToProxy.getClass())
-                        .method(ElementMatchers.any()) // Match all methods since proxied bean does not have the methods annotated anymore
-                        .intercept(InvocationHandlerAdapter.of(sigewineProxy))
-                        .make()
-                        .load(beanToProxy.getClass().getClassLoader())
-                        .getLoaded()
-                        .getConstructors()[0] // We have already checked that the class has a constructor
-                        .newInstance(beanDefinition.getConstructorParameters().toArray());
-                singletonBeans.put(beanDefinition, beanToProxy);
-            }
-        }
-        log.debug("Created '{}' bean proxies", proxiedOriginalBeans.size());
+        // Process constellations
+        log.debug("Processing constellations...");
+        constellations.stream()
+            .sorted(Comparator.comparingInt(SigewineConstellation::getPriority))
+            .forEach(constellation -> {
+                log.debug("Processing constellation '{}' with priority '{}'", constellation.getClass().getSimpleName(), constellation.getPriority());
+                constellation.processBeans(this);
+            });
 
         // Inject beans into collections
         log.debug("Going through beans to inject beans into TypedCollections");
@@ -173,7 +152,7 @@ public class Sigewine {
             final var declaredFields = bean.getClass().getDeclaredFields();
 
             for (var field : declaredFields) {
-                var annotationPresent = field.isAnnotationPresent(RomaritimeBean.class);
+                var annotationPresent = allBeanAnnotations.stream().anyMatch(field::isAnnotationPresent);
                 var isCollection = Collection.class.isAssignableFrom(field.getType());
 
                 if (annotationPresent && isCollection) {
@@ -199,7 +178,7 @@ public class Sigewine {
 
                     var beansToInject = getAllBeansThatAreAssignableFrom(collectionType);
                     log.debug("Injecting '{}' beans into bean named '{}' for collection named '{}' of type '{}'",
-                              beansToInject.size(), beanDefinition, field.getName(), collectionType.getName()
+                        beansToInject.size(), beanDefinition, field.getName(), collectionType.getName()
                     );
                     beansToInject.forEach(collection::addTypedObject);
                     field.setAccessible(wasAccessible);
@@ -211,54 +190,6 @@ public class Sigewine {
         beanDefinitions.forEach(beanDefinition -> beanDefinition.getConstructorParameters().clear());
 
         log.info("Finished scanning package '{}', singleton bean count: '{}'", packageName, singletonBeans.size());
-    }
-
-    /**
-     * Returns a list of method wrappers for the given object that should be used.
-     *
-     * @param bean Object to get the wrappers for
-     *
-     * @return List of method wrappers for the object
-     */
-    protected List<MethodWrapper<?>> getMethodWrappersForObject(Object bean) {
-        final var methodWrappers = new ArrayList<MethodWrapper<?>>();
-
-        // Get all annotations from the class and methods
-        final var annotations = new ArrayList<>(List.of(bean.getClass().getAnnotations()));
-        for (Method declaredMethod : bean.getClass().getDeclaredMethods()) {
-            Collections.addAll(annotations, declaredMethod.getAnnotations());
-        }
-
-        for (var annotation : annotations) {
-            final var methodWrapper = methodWrapperMap.get(annotation.annotationType());
-            if (methodWrapper != null) {
-                methodWrappers.add(methodWrapper);
-            }
-        }
-
-        return methodWrappers;
-    }
-
-    /**
-     * Gets the method wrappers for a method.
-     *
-     * @param method Method to get the wrappers for
-     *
-     * @return List of method wrappers for the method
-     */
-    protected List<MethodWrapper<?>> getMethodWrappersForMethod(Method method) {
-        final var methodWrappers = new ArrayList<MethodWrapper<?>>();
-
-        for (var entry : methodWrapperMap.entrySet()) {
-            final var annotationClass = entry.getKey();
-            final var methodWrapper = entry.getValue();
-
-            if (method.isAnnotationPresent(annotationClass)) {
-                methodWrappers.add(methodWrapper);
-            }
-        }
-
-        return methodWrappers;
     }
 
     /**
@@ -316,12 +247,16 @@ public class Sigewine {
     }
 
     /**
-     * Adds a method wrapper to the method wrapper map.
+     * Adds a constellation to the Sigewine instance.
      *
-     * @param methodWrapper Method wrapper to add
+     * @param constellation Constellation to add
      */
-    public void addMethodWrapper(MethodWrapper<?> methodWrapper) {
-        methodWrapperMap.put(methodWrapper.getAnnotationClass(), methodWrapper);
+    public void addConstellation(@NonNull SigewineConstellation constellation) {
+        if (constellations.stream().anyMatch(c -> c.getClass().equals(constellation.getClass()))) {
+            throw new IllegalArgumentException("Constellation " + constellation.getClass().getSimpleName() + " is already registered");
+        }
+        log.debug("Adding constellation '{}' with priority '{}'", constellation.getClass().getSimpleName(), constellation.getPriority());
+        constellations.add(constellation);
     }
 
     /**
@@ -464,10 +399,10 @@ public class Sigewine {
      */
     protected Object getRegisteredBean(BeanDefinition beanDefinition) {
         return singletonBeans.entrySet().stream()
-                             .filter(entry -> entry.getKey().is(beanDefinition))
-                             .map(Map.Entry::getValue)
-                             .findFirst()
-                             .map(beanDefinition.getClazz()::cast)
-                             .orElseThrow(() -> new IllegalArgumentException("No bean found for " + beanDefinition));
+            .filter(entry -> entry.getKey().is(beanDefinition))
+            .map(Map.Entry::getValue)
+            .findFirst()
+            .map(beanDefinition.getClazz()::cast)
+            .orElseThrow(() -> new IllegalArgumentException("No bean found for " + beanDefinition));
     }
 }

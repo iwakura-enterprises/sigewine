@@ -4,6 +4,7 @@ import enterprises.iwakura.sigewine.annotations.ClassWrappedMethodWrapper;
 import enterprises.iwakura.sigewine.annotations.OtherAnnotationMethodWrapper;
 import enterprises.iwakura.sigewine.annotations.TransactionalMethodWrapper;
 import enterprises.iwakura.sigewine.beans.BeanizedBean;
+import enterprises.iwakura.sigewine.extension.AopConstellation;
 import enterprises.iwakura.sigewine.services.DatabaseServerImpl;
 import enterprises.iwakura.sigewine.services.TeyvatService;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,11 @@ public class SigewineTest {
         SigewineOptions sigewineOptions = SigewineOptions.builder()
             .build();
         Sigewine sigewine = new Sigewine(sigewineOptions);
-        sigewine.addMethodWrapper(new TransactionalMethodWrapper());
-        sigewine.addMethodWrapper(new OtherAnnotationMethodWrapper());
-        sigewine.addMethodWrapper(new ClassWrappedMethodWrapper());
+        AopConstellation aopConstellation = new AopConstellation();
+        aopConstellation.addMethodWrapper(new TransactionalMethodWrapper());
+        aopConstellation.addMethodWrapper(new OtherAnnotationMethodWrapper());
+        aopConstellation.addMethodWrapper(new ClassWrappedMethodWrapper());
+        sigewine.addConstellation(aopConstellation);
 
         // Act
         sigewine.treatment(SigewineTest.class);
