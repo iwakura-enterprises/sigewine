@@ -9,9 +9,7 @@ import lombok.RequiredArgsConstructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Stream;
 
 /**
@@ -155,14 +153,14 @@ public class BeanDefinition {
      *
      * @return the number of beans required to create this bean
      */
-    public long computeBeanScore() {
+    public long computeBeanScore(Set<BeanDefinition> otherBeanDefinitions) {
         if (beanScore != -1) {
             return beanScore;
         }
 
         // If bean definition is for method, use the method's class
         if (method != null) {
-            beanScore = BeanDefinition.of(method.getDeclaringClass()).computeBeanScore();
+            beanScore = BeanDefinition.of(method.getDeclaringClass()).computeBeanScore(otherBeanDefinitions);
         } else {
             // Calculate the bean score to create this bean
             var constructors = clazz.getConstructors();
@@ -187,8 +185,9 @@ public class BeanDefinition {
                         final var parameterClass = parameter.getType();
                         if (!parameterClass.isAnnotationPresent(RomaritimeBean.class)) {
                             parameterBeans += BEAN_SCORE_PENALTY;
+                            parameterBeans += sumBeanScoresOfRelatedBeanDefinitions(parameterClass, otherBeanDefinitions);
                         } else {
-                            parameterBeans += BeanDefinition.of(parameter).computeBeanScore();
+                            parameterBeans += BeanDefinition.of(parameter).computeBeanScore(otherBeanDefinitions);
                         }
                     }
 
@@ -247,5 +246,20 @@ public class BeanDefinition {
         }
 
         return clazz.getName();
+    }
+
+    /**
+     * Sums the bean scores of all bean definitions that are related to the given class.
+     *
+     * @param clazz           the class to check for related bean definitions
+     * @param beanDefinitions the set of bean definitions to check
+     *
+     * @return the sum of bean scores of all related bean definitions
+     */
+    private static long sumBeanScoresOfRelatedBeanDefinitions(Class<?> clazz, Set<BeanDefinition> beanDefinitions) {
+        return beanDefinitions.stream()
+                              .filter(beanDefinition -> beanDefinition.is(BeanDefinition.of(clazz)))
+                              .mapToLong(BeanDefinition::getBeanScore)
+                              .sum();
     }
 }
