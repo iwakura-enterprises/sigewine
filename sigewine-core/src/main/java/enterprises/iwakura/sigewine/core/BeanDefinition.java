@@ -30,7 +30,7 @@ public class BeanDefinition {
     public static BeanDefinition of(Class<?> clazz) {
         return new BeanDefinition(
                 Optional.ofNullable(clazz.getAnnotation(RomaritimeBean.class))
-                        .map(RomaritimeBean::value)
+                        .map(RomaritimeBean::name)
                         .orElse(""),
                 clazz,
                 null
@@ -40,7 +40,7 @@ public class BeanDefinition {
     public static BeanDefinition of(Parameter parameter) {
         return new BeanDefinition(
                 Optional.ofNullable(parameter.getAnnotation(RomaritimeBean.class))
-                        .map(RomaritimeBean::value)
+                        .map(RomaritimeBean::name)
                         .orElse(""),
                 parameter.getType(),
                 null
@@ -50,7 +50,7 @@ public class BeanDefinition {
     public static BeanDefinition of(Method method) {
         return new BeanDefinition(
                 Optional.ofNullable(method.getAnnotation(RomaritimeBean.class))
-                        .map(RomaritimeBean::value)
+                        .map(RomaritimeBean::name)
                         .orElse(""),
                 method.getReturnType(),
                 method

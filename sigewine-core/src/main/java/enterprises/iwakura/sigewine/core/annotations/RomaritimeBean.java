@@ -29,5 +29,5 @@ public @interface RomaritimeBean {
      *
      * @return The name of the bean.
      */
-    String value() default "";
+    String name() default "";
 }
