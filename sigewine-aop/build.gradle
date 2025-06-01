@@ -19,41 +19,30 @@ test {
 
 // == Maven publishing == //
 
-publishing {
-
-    publications {
-        shadow(MavenPublication) {
-            groupId = 'enterprises.iwakura'
-            artifactId = 'sigewine-aop'
-            version = getVersion()
-            from components.java
-
-            pom {
-                name = 'Sigewine AOP'
-                description = 'Extension for Sigewine Core that provides AOP functionalities'
-                url = 'https://github.com/iwakura-enterprises/sigewine'
-
-                scm {
-                    connection = 'scm:https://github.com/iwakura-enterprises/sigewine'
-                    developerConnection = 'scm:git:https://github.com/iwakura-enterprises/sigewine.git'
-                    url = 'https://github.com/iwakura-enterprises/sigewine'
-                }
-
-                licenses {
-                    license {
-                        name = 'The MIT License'
-                        url = 'https://opensource.org/license/mit'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = 'mayuna'
-                        name = 'Marek Lof'
-                        email = 'uwulilmayu@gmail.com'
-                    }
-                }
+medivhPublisher {
+    groupId = project.group.toString()
+    artifactId = project.name
+    version = project.version.toString()
+    pom {
+        name = "Sigewine AOP"
+        description = "Extension for Sigewine Core that provides AOP functionalities"
+        url = "https://github.com/iwakura-enterprises/sigewine"
+        licenses {
+            license {
+                name = "The MIT License"
+                url = "https://opensource.org/license/mit"
             }
+        }
+        developers {
+            developer {
+                id = "mayuna"
+                name = "Marek Lof"
+                email = "uwulilmayu@gmail.com"
+            }
+        }
+        scm {
+            connection = "scm:git:"
+            url = "https://github.com/iwakura-enterprises/sigewine.git"
         }
     }
 }

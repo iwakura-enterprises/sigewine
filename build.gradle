@@ -9,7 +9,7 @@ plugins {
     id "tech.medivh.plugin.publisher" version "1.2.3"
 }
 
-allprojects {
+subprojects {
 
     group = 'enterprises.iwakura'
     version = '2.0.0'
@@ -64,7 +64,7 @@ allprojects {
     task publishCloseAndRelease() {
         dependsOn 'cleanBuildMedivhMavenRepo'
         dependsOn 'uploadToSonatype'
-        dependsOn 'publishDeployment'
+        //dependsOn 'publishDeployment'
     }
 
     shadowJar {
