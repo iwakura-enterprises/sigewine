@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 /**
@@ -15,7 +15,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public final class SigewineInvocationHandler implements InvocationHandler {
 
-    private final List<MethodWrapper<? extends Annotation>> methodWrappers;
+    private final Collection<MethodWrapper<? extends Annotation>> methodWrappers;
     private final Object target;
 
     @Override

@@ -92,11 +92,11 @@ public class AopConstellation extends SigewineConstellation {
      *
      * @return List of method wrappers for the object
      */
-    protected List<MethodWrapper<?>> getMethodWrappersForObject(
+    protected Collection<MethodWrapper<?>> getMethodWrappersForObject(
             Object bean,
             Map<Class<? extends Annotation>, MethodWrapper<? extends Annotation>> methodWrapperMap
     ) {
-        final var methodWrappers = new ArrayList<MethodWrapper<?>>();
+        final var methodWrappers = new HashSet<MethodWrapper<?>>();
 
         // Get all annotations from the class and methods
         final var annotations = new ArrayList<>(List.of(bean.getClass().getAnnotations()));
