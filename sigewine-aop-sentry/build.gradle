@@ -1,0 +1,60 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':sigewine-core')
+    implementation project(':sigewine-aop')
+
+    // https://mvnrepository.com/artifact/io.sentry/sentry-log4j2
+    implementation 'io.sentry:sentry-log4j2:8.13.3'
+
+    // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core
+    implementation 'org.apache.logging.log4j:log4j-core:2.24.3'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// == Maven publishing == //
+
+medivhPublisher {
+    groupId = project.group.toString()
+    artifactId = project.name
+    version = project.version.toString()
+    pom {
+        name = "Sigewine Sentry AOP"
+        description = "Extension for Sigewine AOP that provides Sentry functionalities"
+        url = "https://github.com/iwakura-enterprises/sigewine"
+        licenses {
+            license {
+                name = "The MIT License"
+                url = "https://opensource.org/license/mit"
+            }
+        }
+        developers {
+            developer {
+                id = "mayuna"
+                name = "Marek Lof"
+                email = "uwulilmayu@gmail.com"
+            }
+        }
+        scm {
+            connection = "scm:git:"
+            url = "https://github.com/iwakura-enterprises/sigewine.git"
+        }
+    }
+}
+
+components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) {
+    skip()
+}
+
+shadowJar.dependsOn javadocJar
+shadowJar.dependsOn sourcesJar
+shadowJar.dependsOn jar
