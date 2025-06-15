@@ -4,14 +4,16 @@ import enterprises.iwakura.sigewine.annotations.ClassWrappedMethodWrapper;
 import enterprises.iwakura.sigewine.annotations.OtherAnnotationMethodWrapper;
 import enterprises.iwakura.sigewine.annotations.TransactionalMethodWrapper;
 import enterprises.iwakura.sigewine.aop.extension.AopConstellation;
+import enterprises.iwakura.sigewine.aop.sentry.SentryTransactionMethodWrapper;
 import enterprises.iwakura.sigewine.beans.BeanizedBean;
 import enterprises.iwakura.sigewine.core.*;
 import enterprises.iwakura.sigewine.services.DatabaseServerImpl;
+import enterprises.iwakura.sigewine.services.ImplSelfInjectedBean;
 import enterprises.iwakura.sigewine.services.TeyvatService;
+import io.sentry.Sentry;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.slf4j.event.Level;
 
@@ -37,12 +39,20 @@ public class SigewineTest {
         aopConstellation.addMethodWrapper(new TransactionalMethodWrapper());
         aopConstellation.addMethodWrapper(new OtherAnnotationMethodWrapper());
         aopConstellation.addMethodWrapper(new ClassWrappedMethodWrapper());
+        aopConstellation.addMethodWrapper(new SentryTransactionMethodWrapper());
         sigewine.addConstellation(aopConstellation);
+
+        Sentry.init(options -> {
+            options.setEnabled(false); // Disable Sentry for this test
+            options.setDebug(true);
+            options.setTracesSampleRate(1.0);
+        });
 
         // Act
         sigewine.treatment(SigewineTest.class);
         final var teyvatService = sigewine.syringe(TeyvatService.class);
         final var beanizedBean = sigewine.syringe(BeanizedBean.class);
+        final var selfInjectedBean = sigewine.syringe(ImplSelfInjectedBean.class);
 
         // Assert
         Assertions.assertNotNull(teyvatService, "Teyvat Service should not be null");
@@ -52,6 +62,10 @@ public class SigewineTest {
         Assertions.assertInstanceOf(DatabaseServerImpl.class, teyvatService.getDatabaseService(), "Teyvat Service Database Service should be an instance of DatabaseServerImpl");
         Assertions.assertNotNull(teyvatService.getSelf());
         Assertions.assertInstanceOf(TeyvatService.class, teyvatService.getSelf());
+
+        Assertions.assertNotNull(selfInjectedBean);
+        Assertions.assertNotNull(selfInjectedBean.getSelfInjectedBaseClass());
+        Assertions.assertInstanceOf(ImplSelfInjectedBean.class, selfInjectedBean.getSelfInjectedBaseClass(), "SelfInjectedBean's self should be an instance of ImplSelfInjectedBean");
 
         final var teyvatLogging = teyvatService.getLoggingConfiguration();
         Assertions.assertNotNull(teyvatLogging, "Teyvat Logging should not be null");
@@ -86,6 +100,6 @@ public class SigewineTest {
         teyvatService.someAnnotatedMethod();
         Assertions.assertTrue(OtherAnnotationMethodWrapper.ran);
         Assertions.assertTrue(TransactionalMethodWrapper.ran);
-        Assertions.assertEquals(ranTimes + 2, ClassWrappedMethodWrapper.ranTimes);
+        Assertions.assertEquals(ranTimes + 3, ClassWrappedMethodWrapper.ranTimes);
     }
 }

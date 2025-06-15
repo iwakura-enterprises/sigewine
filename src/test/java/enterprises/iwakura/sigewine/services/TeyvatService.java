@@ -3,6 +3,8 @@ package enterprises.iwakura.sigewine.services;
 import enterprises.iwakura.sigewine.annotations.ClassWrapped;
 import enterprises.iwakura.sigewine.annotations.OtherAnnotation;
 import enterprises.iwakura.sigewine.annotations.Transactional;
+import enterprises.iwakura.sigewine.aop.sentry.NoopTransactionConfigurator;
+import enterprises.iwakura.sigewine.aop.sentry.SentryTransaction;
 import enterprises.iwakura.sigewine.beans.LoggingConfiguration;
 import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
 import enterprises.iwakura.sigewine.core.utils.collections.TypedArrayList;
@@ -33,11 +35,19 @@ public class TeyvatService {
 
     @OtherAnnotation
     @Transactional
+    @SentryTransaction
     public void someAnnotatedMethod() {
         log.info("This is an annotated method");
+        self.innerMethod();
     }
 
+    @SentryTransaction(name = "someCustomName", operation = "customOperation")
     public void someUnannotatedMethod() {
         log.info("This is an unannotated method");
+    }
+
+    @SentryTransaction(name = "innerMethodName", operation = "Super duper operation")
+    public void innerMethod() {
+        log.info("This is an inner method");
     }
 }

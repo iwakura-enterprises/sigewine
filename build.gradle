@@ -108,9 +108,13 @@ repositories {
 dependencies {
     testImplementation project(":sigewine-core")
     testImplementation project(":sigewine-aop")
+    testImplementation project(":sigewine-aop-sentry")
 
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-api/2.0.17
     testImplementation 'org.slf4j:slf4j-api:2.0.17'
+
+    // https://mvnrepository.com/artifact/io.sentry/sentry-log4j2
+    implementation 'io.sentry:sentry-log4j2:8.13.3'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok:1.18.38'
