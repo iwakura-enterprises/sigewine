@@ -50,6 +50,8 @@ public class SigewineTest {
         Assertions.assertEquals(3, teyvatService.getEntities().size(), "There should be 3 entities in TeyvatService#entities");
         Assertions.assertNotNull(teyvatService.getDatabaseService(), "Teyvat Service Database Service should not be null");
         Assertions.assertInstanceOf(DatabaseServerImpl.class, teyvatService.getDatabaseService(), "Teyvat Service Database Service should be an instance of DatabaseServerImpl");
+        Assertions.assertNotNull(teyvatService.getSelf());
+        Assertions.assertInstanceOf(TeyvatService.class, teyvatService.getSelf());
 
         final var teyvatLogging = teyvatService.getLoggingConfiguration();
         Assertions.assertNotNull(teyvatLogging, "Teyvat Logging should not be null");

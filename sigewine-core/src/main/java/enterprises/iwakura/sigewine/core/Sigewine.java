@@ -185,6 +185,23 @@ public class Sigewine {
             }
         }
 
+        log.debug("Going through beans to inject itself");
+        for (Map.Entry<BeanDefinition, Object> beanEntry : singletonBeans.entrySet()) {
+            final var beanDefinition = beanEntry.getKey();
+            // Prefer original bean since it might be a proxy and we need the original instance
+            final var bean = Optional.ofNullable(proxiedOriginalBeans.get(beanDefinition)).orElse(beanEntry.getValue());
+            log.debug("Going through bean '{}': '{}'", beanDefinition, bean);
+            final var declaredFields = bean.getClass().getDeclaredFields();
+
+            for (var field : declaredFields) {
+                if (field.isAnnotationPresent(RomaritimeBean.class) && field.getType().isAssignableFrom(bean.getClass())) {
+                    log.debug("Injecting self into field '{}' of class '{}'", field.getName(), bean.getClass().getName());
+                    field.setAccessible(true);
+                    field.set(bean, bean);
+                }
+            }
+        }
+
         log.debug("Cleaning bean definitions...");
         beanDefinitions.forEach(beanDefinition -> beanDefinition.getConstructorParameters().clear());
 

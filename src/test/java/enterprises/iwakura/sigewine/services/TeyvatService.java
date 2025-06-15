@@ -28,6 +28,9 @@ public class TeyvatService {
     @RomaritimeBean
     private final List<BaseEntity> entities = new TypedArrayList<>(BaseEntity.class);
 
+    @RomaritimeBean
+    private TeyvatService self;
+
     @OtherAnnotation
     @Transactional
     public void someAnnotatedMethod() {
