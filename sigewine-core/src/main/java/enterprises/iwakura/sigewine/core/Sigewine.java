@@ -14,6 +14,7 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
+import java.lang.reflect.Field;
 import java.util.*;
 
 /**
@@ -70,6 +71,16 @@ public class Sigewine {
      */
     public Sigewine(SigewineOptions sigewineOptions) {
         this.sigewineOptions = sigewineOptions;
+    }
+
+    /**
+     * Default constructor for Sigewine with default options.
+     * <p>
+     * This constructor uses the default {@link SigewineOptions} for logging and other configurations.
+     * </p>
+     */
+    public Sigewine() {
+        this(new SigewineOptions());
     }
 
     /**
@@ -148,7 +159,7 @@ public class Sigewine {
             // Prefer original bean since it might be a proxy and we need the original instance
             final var bean = Optional.ofNullable(proxiedOriginalBeans.get(beanDefinition)).orElse(beanEntry.getValue());
             log.debug("Going through bean '{}': '{}'", beanDefinition, bean);
-            final var declaredFields = bean.getClass().getDeclaredFields();
+            final var declaredFields = getAllFields(bean.getClass());
 
             for (var field : declaredFields) {
                 var annotationPresent = field.isAnnotationPresent(RomaritimeBean.class);
@@ -188,16 +199,18 @@ public class Sigewine {
         log.debug("Going through beans to inject itself");
         for (Map.Entry<BeanDefinition, Object> beanEntry : singletonBeans.entrySet()) {
             final var beanDefinition = beanEntry.getKey();
-            // Prefer original bean since it might be a proxy and we need the original instance
-            final var bean = Optional.ofNullable(proxiedOriginalBeans.get(beanDefinition)).orElse(beanEntry.getValue());
-            log.debug("Going through bean '{}': '{}'", beanDefinition, bean);
-            final var declaredFields = bean.getClass().getDeclaredFields();
+            final var originalBean = Optional.ofNullable(proxiedOriginalBeans.get(beanDefinition)).orElse(beanEntry.getValue());
+            final var proxiedBean = beanEntry.getValue();
+            log.debug("Going through bean '{}': '{}'", beanDefinition, originalBean);
+            final var declaredFields = getAllFields(originalBean.getClass());
 
             for (var field : declaredFields) {
-                if (field.isAnnotationPresent(RomaritimeBean.class) && field.getType().isAssignableFrom(bean.getClass())) {
-                    log.debug("Injecting self into field '{}' of class '{}'", field.getName(), bean.getClass().getName());
+                if (field.isAnnotationPresent(RomaritimeBean.class) && field.getType().isAssignableFrom(originalBean.getClass())) {
+                    log.debug("Injecting self into field '{}' of class '{}'", field.getName(), originalBean.getClass().getName());
                     field.setAccessible(true);
-                    field.set(bean, bean);
+                    // Set the field to the original bean instance, not the proxied one,
+                    // hover use the proxied bean for the field value
+                    field.set(originalBean, proxiedBean);
                 }
             }
         }
@@ -420,5 +433,24 @@ public class Sigewine {
             .findFirst()
             .map(beanDefinition.getClazz()::cast)
             .orElseThrow(() -> new IllegalArgumentException("No bean found for " + beanDefinition));
+    }
+
+    /**
+     * Gets all fields of the class and its superclasses.
+     *
+     * @param clazz Class to get the fields from
+     *
+     * @return Array of fields
+     */
+    protected Field[] getAllFields(Class<?> clazz) {
+        final var fields = new ArrayList<Field>();
+        Class<?> currentClass = clazz;
+
+        while (currentClass != null) {
+            fields.addAll(Arrays.asList(currentClass.getDeclaredFields()));
+            currentClass = currentClass.getSuperclass();
+        }
+
+        return fields.toArray(new Field[0]);
     }
 }
