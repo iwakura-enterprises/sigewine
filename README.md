@@ -8,8 +8,9 @@ Sigewine is a Java library for simple and lightweight dependency injection.
 ## Project structure
 - `sigewine-core`: The core library that provides the dependency injection functionality.
 - `sigewine-aop`: Contains AOP-like Proxy functionality to allow wrap beans. For example, to log method calls or to add transaction management.
+- `sigewine-aop-sentry`: Provides integration with Sentry for AOP-like method interception. This module is optional and requires `sigewine-aop`.
 
-More modules may be added in the future, such as `sigewine-irminsul` and `sigewine-sentry`.
+More modules may be added in the future, such as `sigewine-aop-irminsul`.
 
 ## Documentation
 Documentation is available at the [Central iwakura.enterprises documentations](https://docs.iwakura.enterprises/sigewine.html)
