@@ -1,12 +1,14 @@
 package enterprises.iwakura.sigewine.aop;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A wrapper for methods that are annotated with a specific annotation.
@@ -26,7 +28,7 @@ public abstract class MethodWrapper<T extends Annotation> {
     /**
      * A cache for annotated methods to avoid repeated reflection lookups.
      */
-    private Map<String, Annotation> annotatedMethodsCache;
+    private final Map<Class<?>, Map<String, Annotation>> annotatedMethodsCache = new ConcurrentHashMap<>();
 
     /**
      * Constructor that initializes the wrapper with the specified annotation class.
@@ -118,25 +120,28 @@ public abstract class MethodWrapper<T extends Annotation> {
      * @return A map of method names to annotations
      */
     public Map<String, Annotation> getAnnotatedMethods(Object target) {
-        if (annotatedMethodsCache != null) {
-            return annotatedMethodsCache;
+        final var cachedMethods = annotatedMethodsCache.get(target.getClass());
+        if (cachedMethods != null) {
+            return cachedMethods;
         }
 
-        final var map = new HashMap<String, Annotation>();
+        final var map = new ConcurrentHashMap<String, Annotation>();
         // If class is annotated, add all methods
         if (target.getClass().isAnnotationPresent(annotationClass)) {
             final var classAnnotation = target.getClass().getAnnotation(annotationClass);
             for (Method method : target.getClass().getDeclaredMethods()) {
+                //noinspection DataFlowIssue
                 map.put(method.getName(), classAnnotation);
             }
         }
         // Go thru all methods and add the ones that are annotated especially
         for (Method method : target.getClass().getDeclaredMethods()) {
             if (method.isAnnotationPresent(annotationClass)) {
+                //noinspection DataFlowIssue
                 map.put(method.getName(), method.getAnnotation(annotationClass));
             }
         }
-        annotatedMethodsCache = map;
-        return annotatedMethodsCache;
+        annotatedMethodsCache.put(target.getClass(), map);
+        return map;
     }
 }

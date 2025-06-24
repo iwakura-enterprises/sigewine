@@ -348,7 +348,7 @@ public class Sigewine {
     protected void registerClassBean(BeanDefinition beanDefinition) {
         final var constructorBeanDefinitions = beanDefinition.getConstructorBeanDefinitions();
         final var beanClass = beanDefinition.getClazz();
-        final Object beanInstance;
+        Object beanInstance;
 
         if (constructorBeanDefinitions.isEmpty()) {
             log.debug("Creating bean instance for class bean '{}'", beanDefinition);
@@ -370,6 +370,11 @@ public class Sigewine {
 
             Collections.addAll(beanDefinition.getConstructorParameters(), args);
             beanInstance = constructor.newInstance(args);
+        }
+
+        log.debug("Processing constellations for class bean '{}'", beanDefinition);
+        for (SigewineConstellation constellation : constellations) {
+            beanInstance = constellation.processCreatedBeanInstance(beanInstance, beanDefinition, this);
         }
 
         log.debug("Registering bean instance for class bean '{}' of class '{}'", beanDefinition, beanClass.getName());

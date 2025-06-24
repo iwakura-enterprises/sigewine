@@ -10,7 +10,9 @@ import enterprises.iwakura.sigewine.core.*;
 import enterprises.iwakura.sigewine.services.DatabaseServerImpl;
 import enterprises.iwakura.sigewine.services.ImplSelfInjectedBean;
 import enterprises.iwakura.sigewine.services.TeyvatService;
+import enterprises.iwakura.sigewine.services.sentry.SentryServiceThree;
 import io.sentry.Sentry;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +31,7 @@ public class SigewineTest {
     }
 
     @Test
+    @SneakyThrows
     public void run_defaultOptions() {
         // Arrange
         //@formatter:off
@@ -53,6 +56,7 @@ public class SigewineTest {
         final var teyvatService = sigewine.syringe(TeyvatService.class);
         final var beanizedBean = sigewine.syringe(BeanizedBean.class);
         final var selfInjectedBean = sigewine.syringe(ImplSelfInjectedBean.class);
+        final var serviceThree = sigewine.syringe(SentryServiceThree.class);
 
         // Assert
         Assertions.assertNotNull(teyvatService, "Teyvat Service should not be null");
@@ -93,6 +97,7 @@ public class SigewineTest {
         Assertions.assertEquals(Level.ERROR, beanizedBeanLogLevel, "BeanizedBean log level should be ERROR");
         //@formatter:on
 
+
         int ranTimes = ClassWrappedMethodWrapper.ranTimes;
         teyvatService.someUnannotatedMethod();
         Assertions.assertFalse(OtherAnnotationMethodWrapper.ran);
@@ -101,5 +106,10 @@ public class SigewineTest {
         Assertions.assertTrue(OtherAnnotationMethodWrapper.ran);
         Assertions.assertTrue(TransactionalMethodWrapper.ran);
         Assertions.assertEquals(ranTimes + 3, ClassWrappedMethodWrapper.ranTimes);
+
+        serviceThree.three();
+        Assertions.assertTrue(serviceThree.getSentryServiceOne().getClass().getSimpleName().contains("ByteBuddy"));
+        Assertions.assertTrue(serviceThree.getSentryServiceTwo().getClass().getSimpleName().contains("ByteBuddy"));
+        Assertions.assertTrue(serviceThree.getSentryServiceTwo().getSelf().getClass().getSimpleName().contains("ByteBuddy"));
     }
 }

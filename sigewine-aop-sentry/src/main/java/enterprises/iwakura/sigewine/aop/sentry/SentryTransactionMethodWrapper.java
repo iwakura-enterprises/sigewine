@@ -1,22 +1,22 @@
 package enterprises.iwakura.sigewine.aop.sentry;
 
 import enterprises.iwakura.sigewine.aop.MethodWrapper;
-import io.sentry.ISpan;
-import io.sentry.Sentry;
-import io.sentry.SpanStatus;
-import io.sentry.TransactionOptions;
+import io.sentry.*;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Method wrapper for Sentry transactions.
  * This class handles the creation and management of Sentry transactions and spans based on the {@link SentryTransaction} annotation.
  * It supports binding to the current scope, capturing exceptions, and using custom configurators for transaction options.
  */
+@Slf4j
 public final class SentryTransactionMethodWrapper extends MethodWrapper<SentryTransaction> {
 
     /**
@@ -53,9 +53,11 @@ public final class SentryTransactionMethodWrapper extends MethodWrapper<SentryTr
         if (currentTransaction == null) {
             // If there's no current transaction, we start a new one
             span = Sentry.startTransaction(spanName, annotation.operation(), txOptions);
+            log.debug("Started new transaction: {}", spanName);
         } else {
             // If there's an existing transaction, we create a child span
             span = currentTransaction.startChild(spanName, annotation.operation(), txOptions);
+            log.debug("Started child span: {} in transaction: {}", spanName, currentTransaction.getName());
         }
 
         if (!annotation.bindToScope()) {
@@ -77,6 +79,7 @@ public final class SentryTransactionMethodWrapper extends MethodWrapper<SentryTr
 
         if (span == null) {
             // If there's no span, we do nothing
+            log.warn("No span found for transaction. This might happen if the method was called without an active transaction or span.");
             return;
         }
 
@@ -86,6 +89,14 @@ public final class SentryTransactionMethodWrapper extends MethodWrapper<SentryTr
         }
 
         span.finish(optionalThrowable.isPresent() ? SpanStatus.INTERNAL_ERROR : SpanStatus.OK);
+
+        final String name;
+        if (span instanceof SentryTracer sentryTracer) {
+            name = sentryTracer.getName();
+        } else {
+            name = span.getOperation();
+        }
+        log.debug("Finished span {} with status {}", name, span.getStatus());
     }
 
     /**

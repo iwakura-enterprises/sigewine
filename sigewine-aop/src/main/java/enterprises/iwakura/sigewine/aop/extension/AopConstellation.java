@@ -1,6 +1,7 @@
 package enterprises.iwakura.sigewine.aop.extension;
 
 import enterprises.iwakura.sigewine.aop.MethodWrapper;
+import enterprises.iwakura.sigewine.core.BeanDefinition;
 import enterprises.iwakura.sigewine.core.Sigewine;
 import enterprises.iwakura.sigewine.aop.SigewineInvocationHandler;
 import enterprises.iwakura.sigewine.core.extension.SigewineConstellation;
@@ -52,36 +53,34 @@ public class AopConstellation extends SigewineConstellation {
     @SneakyThrows
     @Override
     public void processBeans(Sigewine sigewine) {
-        final var singletonBeans = sigewine.getSingletonBeans();
+    }
 
-        log.debug("Creating proxies for beans...");
-        for (var entry : singletonBeans.entrySet()) {
-            final var beanDefinition = entry.getKey();
-            final var originalBean = entry.getValue();
-            final var methodWrappers = getMethodWrappersForObject(originalBean, methodWrapperMap);
+    @SneakyThrows
+    @Override
+    public Object processCreatedBeanInstance(Object beanInstance, BeanDefinition beanDefinition, Sigewine sigewine) {
+        final var methodWrappers = getMethodWrappersForObject(beanInstance, methodWrapperMap);
 
-            if (!methodWrappers.isEmpty()) {
-                // Add the original bean to the map
-                sigewine.getProxiedOriginalBeans().put(beanDefinition, originalBean);
-                var beanToProxy = originalBean;
+        if (!methodWrappers.isEmpty()) {
+            // Add the original bean to the map
+            sigewine.getProxiedOriginalBeans().put(beanDefinition, beanInstance);
 
-                log.debug("Creating proxy for bean '{}': '{}'", beanDefinition, methodWrappers);
+            log.debug("Creating proxy for bean '{}': '{}'", beanDefinition, methodWrappers);
 
-                final var sigewineProxy = new SigewineInvocationHandler(methodWrappers, beanToProxy);
+            final var sigewineProxy = new SigewineInvocationHandler(methodWrappers, beanInstance);
 
-                beanToProxy = byteBuddy
-                    .subclass(beanToProxy.getClass())
+            return byteBuddy
+                    .subclass(beanInstance.getClass())
                     .method(ElementMatchers.any()) // Match all methods since proxied bean does not have the methods annotated anymore
                     .intercept(InvocationHandlerAdapter.of(sigewineProxy))
                     .make()
-                    .load(beanToProxy.getClass().getClassLoader())
+                    .load(beanInstance.getClass().getClassLoader())
                     .getLoaded()
                     .getConstructors()[0] // We have already checked that the class has a constructor
                     .newInstance(beanDefinition.getConstructorParameters().toArray());
-                singletonBeans.put(beanDefinition, beanToProxy);
-            }
         }
-        log.debug("Created '{}' bean proxies", sigewine.getProxiedOriginalBeans().size());
+
+        // No touching
+        return beanInstance;
     }
 
     /**
