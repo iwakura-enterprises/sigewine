@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Optional;
@@ -39,6 +40,8 @@ public final class SigewineInvocationHandler implements InvocationHandler {
         // Invocation
         try {
             optionalResult = Optional.ofNullable(method.invoke(target, args));
+        } catch (InvocationTargetException e) {
+            optionalThrowable = Optional.of(e.getCause());
         } catch (Throwable throwable) {
             optionalThrowable = Optional.of(throwable);
         }
