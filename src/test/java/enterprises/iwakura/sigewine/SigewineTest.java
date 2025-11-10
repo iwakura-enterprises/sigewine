@@ -3,7 +3,7 @@ package enterprises.iwakura.sigewine;
 import enterprises.iwakura.sigewine.annotations.ClassWrappedMethodWrapper;
 import enterprises.iwakura.sigewine.annotations.OtherAnnotationMethodWrapper;
 import enterprises.iwakura.sigewine.annotations.TransactionalMethodWrapper;
-import enterprises.iwakura.sigewine.aop.extension.AopConstellation;
+import enterprises.iwakura.sigewine.aop.extension.AopExtension;
 import enterprises.iwakura.sigewine.aop.sentry.SentryTransactionMethodWrapper;
 import enterprises.iwakura.sigewine.beans.BeanizedBean;
 import enterprises.iwakura.sigewine.core.*;
@@ -38,12 +38,12 @@ public class SigewineTest {
         SigewineOptions sigewineOptions = SigewineOptions.builder()
             .build();
         Sigewine sigewine = new Sigewine(sigewineOptions);
-        AopConstellation aopConstellation = new AopConstellation(1);
+        AopExtension aopConstellation = new AopExtension(1);
         aopConstellation.addMethodWrapper(new TransactionalMethodWrapper());
         aopConstellation.addMethodWrapper(new OtherAnnotationMethodWrapper());
         aopConstellation.addMethodWrapper(new ClassWrappedMethodWrapper());
         aopConstellation.addMethodWrapper(new SentryTransactionMethodWrapper());
-        sigewine.addConstellation(aopConstellation);
+        sigewine.addExtension(aopConstellation);
 
         Sentry.init(options -> {
             options.setEnabled(false); // Disable Sentry for this test
@@ -52,11 +52,11 @@ public class SigewineTest {
         });
 
         // Act
-        sigewine.treatment(SigewineTest.class);
-        final var teyvatService = sigewine.syringe(TeyvatService.class);
-        final var beanizedBean = sigewine.syringe(BeanizedBean.class);
-        final var selfInjectedBean = sigewine.syringe(ImplSelfInjectedBean.class);
-        final var serviceThree = sigewine.syringe(SentryServiceThree.class);
+        sigewine.scan(SigewineTest.class);
+        final var teyvatService = sigewine.inject(TeyvatService.class);
+        final var beanizedBean = sigewine.inject(BeanizedBean.class);
+        final var selfInjectedBean = sigewine.inject(ImplSelfInjectedBean.class);
+        final var serviceThree = sigewine.inject(SentryServiceThree.class);
 
         // Assert
         Assertions.assertNotNull(teyvatService, "Teyvat Service should not be null");
@@ -66,6 +66,10 @@ public class SigewineTest {
         Assertions.assertInstanceOf(DatabaseServerImpl.class, teyvatService.getDatabaseService(), "Teyvat Service Database Service should be an instance of DatabaseServerImpl");
         Assertions.assertNotNull(teyvatService.getSelf());
         Assertions.assertInstanceOf(TeyvatService.class, teyvatService.getSelf());
+        Assertions.assertNotNull(teyvatService.getHeavenlyPrinciplesBean());
+        Assertions.assertNotNull(teyvatService.getHeavenlyPrinciplesBean().getHeavenlyPrinciplesRule());
+        Assertions.assertNotNull(teyvatService.getHeavenlyPrinciplesBean().getTeyvatServiceAccessor().getBeanInstance());
+        assert teyvatService.getHeavenlyPrinciplesBean().getTeyvatServiceAccessor().getBeanInstance() == teyvatService;
 
         Assertions.assertNotNull(selfInjectedBean);
         Assertions.assertNotNull(selfInjectedBean.getSelfInjectedBaseClass());

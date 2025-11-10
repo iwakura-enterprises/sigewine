@@ -1,16 +1,16 @@
 package enterprises.iwakura.sigewine.services;
 
-import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.Bean;
 import enterprises.iwakura.sigewine.beans.LoggingConfiguration;
 import lombok.Getter;
 
 @Getter
-@RomaritimeBean
+@Bean
 public class PrimordialService {
 
     private final LoggingConfiguration loggingConfiguration; // Will be info
 
-    public PrimordialService(@RomaritimeBean(name = "errorLogging") LoggingConfiguration loggingConfiguration) {
+    public PrimordialService(@Bean(name = "errorLogging") LoggingConfiguration loggingConfiguration) {
         this.loggingConfiguration = loggingConfiguration;
     }
 

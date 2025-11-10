@@ -1,6 +1,6 @@
 package enterprises.iwakura.sigewine.config;
 
-import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.Bean;
 import enterprises.iwakura.sigewine.beans.LoggingConfiguration;
 import org.slf4j.event.Level;
 
@@ -9,17 +9,17 @@ import org.slf4j.event.Level;
  */
 public class TestLoggingConfig {
 
-    @RomaritimeBean
+    @Bean
     public LoggingConfiguration defaultLoggingConfig() {
         return new LoggingConfiguration(Level.INFO);
     }
 
-    @RomaritimeBean(name = "errorLogging")
+    @Bean(name = "errorLogging")
     public LoggingConfiguration errorLoggingConfig() {
         return new LoggingConfiguration(Level.ERROR);
     }
 
-    @RomaritimeBean(name = "debugLogging")
+    @Bean(name = "debugLogging")
     public LoggingConfiguration debugLoggingConfig() {
         return new LoggingConfiguration(Level.DEBUG);
     }

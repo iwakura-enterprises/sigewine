@@ -1,12 +1,12 @@
 package enterprises.iwakura.sigewine.services;
 
-import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.Bean;
 import lombok.Getter;
 
 public abstract class SelfInjectedBaseClass {
 
     @Getter
-    @RomaritimeBean
+    @Bean
     private SelfInjectedBaseClass selfInjectedBaseClass;
 
 }

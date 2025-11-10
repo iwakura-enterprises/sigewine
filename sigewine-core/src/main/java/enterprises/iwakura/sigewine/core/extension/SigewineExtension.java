@@ -10,10 +10,10 @@ import lombok.RequiredArgsConstructor;
  */
 @Getter
 @RequiredArgsConstructor
-public abstract class SigewineConstellation {
+public abstract class SigewineExtension {
 
     /**
-     * Priority of the constellation, used to determine the order of processing. Smaller values are processed first.
+     * Priority of the extension, used to determine the order of processing. Smaller values are processed first.
      */
     protected final int priority;
 

@@ -1,7 +1,7 @@
 package enterprises.iwakura.sigewine.services.sentry;
 
 import enterprises.iwakura.sigewine.aop.sentry.SentryTransaction;
-import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.Bean;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Getter
-@RomaritimeBean
+@Bean
 @RequiredArgsConstructor
 public class SentryServiceThree {
 

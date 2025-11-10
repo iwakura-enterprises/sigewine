@@ -1,6 +1,6 @@
 package enterprises.iwakura.sigewine.core.utils;
 
-import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
+import enterprises.iwakura.sigewine.core.annotations.Bean;
 
 import java.lang.reflect.Method;
 
@@ -88,7 +88,7 @@ public final class Preconditions {
      * @param clazz           Class to check
      * @param romaritimeClass Annotation class to check
      */
-    public static void checkAnnotated(Class<?> clazz, Class<RomaritimeBean> romaritimeClass) {
+    public static void checkAnnotated(Class<?> clazz, Class<Bean> romaritimeClass) {
         if (!clazz.isAnnotationPresent(romaritimeClass)) {
             throw new IllegalArgumentException("Class " + clazz.getName() + " is not annotated with " + romaritimeClass.getName());
         }

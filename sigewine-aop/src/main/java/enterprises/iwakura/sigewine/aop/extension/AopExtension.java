@@ -4,7 +4,7 @@ import enterprises.iwakura.sigewine.aop.MethodWrapper;
 import enterprises.iwakura.sigewine.core.BeanDefinition;
 import enterprises.iwakura.sigewine.core.Sigewine;
 import enterprises.iwakura.sigewine.aop.SigewineInvocationHandler;
-import enterprises.iwakura.sigewine.core.extension.SigewineConstellation;
+import enterprises.iwakura.sigewine.core.extension.SigewineExtension;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.ByteBuddy;
@@ -19,7 +19,7 @@ import java.util.*;
  * AOP extension for Sigewine that creates proxies for beans with annotated methods.
  */
 @Slf4j
-public class AopConstellation extends SigewineConstellation {
+public class AopExtension extends SigewineExtension {
 
     /**
      * ByteBuddy instance for creating proxies.
@@ -35,9 +35,9 @@ public class AopConstellation extends SigewineConstellation {
     /**
      * Creates a new AopConstellation with specified priority.
      *
-     * @param priority Priority of the constellation, lower values are processed first
+     * @param priority Priority of the extension, lower values are processed first
      */
-    public AopConstellation(int priority) {
+    public AopExtension(int priority) {
         super(priority);
     }
 

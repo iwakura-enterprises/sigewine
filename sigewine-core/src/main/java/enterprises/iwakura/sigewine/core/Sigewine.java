@@ -1,7 +1,9 @@
 package enterprises.iwakura.sigewine.core;
 
-import enterprises.iwakura.sigewine.core.annotations.RomaritimeBean;
-import enterprises.iwakura.sigewine.core.extension.SigewineConstellation;
+import enterprises.iwakura.sigewine.core.annotations.Bean;
+import enterprises.iwakura.sigewine.core.extension.InjectBeanExtension;
+import enterprises.iwakura.sigewine.core.extension.SigewineExtension;
+import enterprises.iwakura.sigewine.core.extension.TypedCollectionExtension;
 import enterprises.iwakura.sigewine.core.utils.Preconditions;
 import enterprises.iwakura.sigewine.core.utils.collections.TypedCollection;
 import lombok.Data;
@@ -14,25 +16,24 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
-import java.lang.reflect.Field;
 import java.util.*;
 
 /**
  * Main entry point to the Sigewine Dependency Injection (DI) API.
  * <p>
  * This class provides functionality for scanning, registering, and injecting beans
- * (classes or methods annotated with {@link RomaritimeBean} or the extension of it) into a dependency graph.
+ * (classes or methods annotated with {@link Bean} or the extension of it) into a dependency graph.
  * </p>
  * <p>
- * You may add additional functionality by implementing the {@link SigewineConstellation} interface and adding it to the Sigewine instance.
+ * You may add additional functionality by implementing the {@link SigewineExtension} interface and adding it to the Sigewine instance.
  * </p>
  * <p>
  * <b>Usage:</b>
  * <ol>
  *   <li>Create an instance of {@link SigewineOptions} to configure logging and other options.</li>
  *   <li>Instantiate {@link Sigewine} with the options.</li>
- *   <li>Use {@link #treatment(Class)} or {@link #treatment(String, ClassLoader)} to scan packages for beans.</li>
- *   <li>Use {@link #syringe(Class)} to inject dependencies into a class.</li>
+ *   <li>Use {@link #scan(Class)} or {@link #scan(String, ClassLoader)} to scan packages for beans.</li>
+ *   <li>Use {@link #inject(Class)} to inject dependencies into a class.</li>
  * </ol>
  */
 @Data
@@ -44,9 +45,9 @@ public class Sigewine {
      */
     protected final SigewineOptions sigewineOptions;
     /**
-     * List of constellations to extend the functionality of Sigewine.
+     * List of extensions to extend the functionality of Sigewine.
      */
-    protected final List<SigewineConstellation> constellations = new ArrayList<>(List.of());
+    protected final List<SigewineExtension> extensions = new ArrayList<>(List.of());
     /**
      * Map of beans registered in the DI container.
      */
@@ -61,7 +62,7 @@ public class Sigewine {
     protected final Map<Class<?>, Object> methodBeanDeclaringClassCache = new HashMap<>();
     /**
      * Map of original beans that are proxied. This is used to keep track of the original bean instances
-     * when they are proxied by the AOP constellation or any other constellation that creates proxies.
+     * when they are proxied by the AOP extension or any other extension that creates proxies.
      */
     protected final Map<BeanDefinition, Object> proxiedOriginalBeans = new HashMap<>();
     /**
@@ -71,6 +72,7 @@ public class Sigewine {
      */
     public Sigewine(SigewineOptions sigewineOptions) {
         this.sigewineOptions = sigewineOptions;
+        addInternalExtensions();
     }
 
     /**
@@ -84,12 +86,23 @@ public class Sigewine {
     }
 
     /**
-     * Invokes {@link #treatment(String, ClassLoader)} with the package name of the class and its class loader
+     * Adds internal extensions to the Sigewine instance.
+     * <p>
+     * This method is called during the initialization of the Sigewine instance to add built-in extensions.
+     * </p>
+     */
+    protected void addInternalExtensions() {
+        addExtension(new TypedCollectionExtension(sigewineOptions.getTypedCollectionExtensionPriority()));
+        addExtension(new InjectBeanExtension(sigewineOptions.getInjectBeanExtensionPriority()));
+    }
+
+    /**
+     * Invokes {@link #scan(String, ClassLoader)} with the package name of the class and its class loader
      *
      * @param clazz Class to get the package name from
      */
-    public void treatment(Class<?> clazz) {
-        treatment(clazz.getPackageName(), clazz.getClassLoader());
+    public void scan(Class<?> clazz) {
+        scan(clazz.getPackageName(), clazz.getClassLoader());
     }
 
     /**
@@ -97,8 +110,9 @@ public class Sigewine {
      * <p>
      * This method performs the following steps:
      * <ol>
-     *     <li>Scans for methods annotated with {@link RomaritimeBean} (or the extension of it) and registers their return values as beans.</li>
-     *     <li>Scans for classes annotated with {@link RomaritimeBean} (or the extension of it) and registers them as beans.</li>
+     *     <li>Scans for methods annotated with {@link Bean} (or the extension of it) and registers their return values as beans.</li>
+     *     <li>Scans for classes annotated with {@link Bean} (or the extension of it) and registers them as beans.</li>
+     *     <li>Injects beans into fields annotated by {@link Bean}</li>
      *     <li>Injects beans into fields of type {@link TypedCollection}.</li>
      * </ol>
      *
@@ -106,7 +120,7 @@ public class Sigewine {
      * @param classLoader The class loader to use for scanning.
      */
     @SneakyThrows
-    public synchronized void treatment(String packageName, ClassLoader classLoader) {
+    public synchronized void scan(String packageName, ClassLoader classLoader) {
         log.info("Scanning package '{}' for classes annotated with @Romaritime", packageName);
 
         ConfigurationBuilder config = new ConfigurationBuilder()
@@ -115,8 +129,8 @@ public class Sigewine {
                 .filterInputsBy(new FilterBuilder().includePackage(packageName));
         config.setClassLoaders(new ClassLoader[] {classLoader});
         final var reflections = new Reflections(config);
-        final var annotatedClasses = reflections.getTypesAnnotatedWith(RomaritimeBean.class);
-        final var annotatedMethods = reflections.getMethodsAnnotatedWith(RomaritimeBean.class);
+        final var annotatedClasses = reflections.getTypesAnnotatedWith(Bean.class);
+        final var annotatedMethods = reflections.getMethodsAnnotatedWith(Bean.class);
 
         log.info("Found '{}' classes annotated with bean annotation", annotatedClasses.size());
         log.info("Found '{}' methods annotated with bean annotation", annotatedMethods.size());
@@ -143,77 +157,14 @@ public class Sigewine {
             }
         }
 
-        // Process constellations
-        log.debug("Processing constellations...");
-        constellations.stream()
-            .sorted(Comparator.comparingInt(SigewineConstellation::getPriority))
-            .forEach(constellation -> {
-                log.debug("Processing constellation '{}' with priority '{}'", constellation.getClass().getSimpleName(), constellation.getPriority());
-                constellation.processBeans(this);
+        // Process extensions
+        log.debug("Processing extensions...");
+        extensions.stream()
+            .sorted(Comparator.comparingInt(SigewineExtension::getPriority))
+            .forEach(extension -> {
+                log.debug("Processing extension '{}' with priority '{}'", extension.getClass().getSimpleName(), extension.getPriority());
+                extension.processBeans(this);
             });
-
-        // Inject beans into collections
-        log.debug("Going through beans to inject beans into TypedCollections");
-        for (Map.Entry<BeanDefinition, Object> beanEntry : singletonBeans.entrySet()) {
-            final var beanDefinition = beanEntry.getKey();
-            // Prefer original bean since it might be a proxy and we need the original instance
-            final var bean = Optional.ofNullable(proxiedOriginalBeans.get(beanDefinition)).orElse(beanEntry.getValue());
-            log.debug("Going through bean '{}': '{}'", beanDefinition, bean);
-            final var declaredFields = getAllFields(bean.getClass());
-
-            for (var field : declaredFields) {
-                var annotationPresent = field.isAnnotationPresent(RomaritimeBean.class);
-                var isCollection = Collection.class.isAssignableFrom(field.getType());
-
-                if (annotationPresent && isCollection) {
-                    var wasAccessible = field.canAccess(bean);
-                    field.setAccessible(true);
-
-                    var collectionObject = field.get(bean);
-
-                    if (!(collectionObject instanceof TypedCollection<?> collection)) {
-                        log.debug("Field '{}' is collection, but is not instance of TypedCollection. Ignoring", field.getName());
-                        continue;
-                    }
-
-                    var collectionType = collection.getType();
-
-                    if (collectionType == null) {
-                        throw new IllegalArgumentException("Field " + field.getName() + " must have a type");
-                    }
-
-                    if (collectionType.isAssignableFrom(TypedCollection.class)) {
-                        throw new IllegalArgumentException("Type of TypedCollection " + field.getName() + " cannot be a TypedCollection");
-                    }
-
-                    var beansToInject = getAllBeansThatAreAssignableFrom(collectionType);
-                    log.debug("Injecting '{}' beans into bean named '{}' for collection named '{}' of type '{}'",
-                        beansToInject.size(), beanDefinition, field.getName(), collectionType.getName()
-                    );
-                    beansToInject.forEach(collection::addTypedObject);
-                    field.setAccessible(wasAccessible);
-                }
-            }
-        }
-
-        log.debug("Going through beans to inject itself");
-        for (Map.Entry<BeanDefinition, Object> beanEntry : singletonBeans.entrySet()) {
-            final var beanDefinition = beanEntry.getKey();
-            final var originalBean = Optional.ofNullable(proxiedOriginalBeans.get(beanDefinition)).orElse(beanEntry.getValue());
-            final var proxiedBean = beanEntry.getValue();
-            log.debug("Going through bean '{}': '{}'", beanDefinition, originalBean);
-            final var declaredFields = getAllFields(originalBean.getClass());
-
-            for (var field : declaredFields) {
-                if (field.isAnnotationPresent(RomaritimeBean.class) && field.getType().isAssignableFrom(originalBean.getClass())) {
-                    log.debug("Injecting self into field '{}' of class '{}'", field.getName(), originalBean.getClass().getName());
-                    field.setAccessible(true);
-                    // Set the field to the original bean instance, not the proxied one,
-                    // hover use the proxied bean for the field value
-                    field.set(originalBean, proxiedBean);
-                }
-            }
-        }
 
         log.debug("Cleaning bean definitions...");
         beanDefinitions.forEach(beanDefinition -> beanDefinition.getConstructorParameters().clear());
@@ -229,10 +180,23 @@ public class Sigewine {
      *
      * @return Instance of the class with dependencies injected
      */
+    public <T> T inject(Class<T> clazz) {
+        return inject(clazz, "");
+    }
+
+    /**
+     * Injects dependencies into the class.
+     *
+     * @param clazz Class to inject dependencies into
+     * @param beanName Bean name to use for the class
+     * @param <T>   Type of the class
+     *
+     * @return Instance of the class with dependencies injected
+     */
     @SneakyThrows
-    public <T> T syringe(Class<T> clazz) {
+    public <T> T inject(Class<T> clazz, String beanName) {
         // Get bean name for the class
-        final var beanDefinition = BeanDefinition.of(clazz);
+        final var beanDefinition = BeanDefinition.of(clazz, beanName);
 
         // If bean is already registered, return it
         if (isBeanRegistered(beanDefinition)) {
@@ -240,8 +204,7 @@ public class Sigewine {
             if (!clazz.isAssignableFrom(beanObject.getClass())) {
                 throw new IllegalArgumentException("Bug! Bean " + beanDefinition + " is not of type " + clazz.getName());
             }
-            log.debug("Returning registered bean '{}' of class '{}': '{}'", beanDefinition, clazz.getName(), beanObject);
-            return clazz.cast(getRegisteredBean(beanDefinition));
+            return clazz.cast(beanObject);
         }
 
         // Inject dependencies
@@ -252,7 +215,8 @@ public class Sigewine {
         final var parameters = constructor.getParameters();
         final var args = new Object[parameters.length];
 
-        log.debug("Found '{}' parameters for bean '{}' of class '{}': '{}'", parameters.length, beanDefinition, clazz.getName(), parameters);
+        log.debug("Found '{}' parameters for bean '{}' of class '{}': '{}'", parameters.length, beanDefinition,
+            clazz.getName(), parameters);
 
         for (int i = 0; i < parameters.length; i++) {
             final var parameter = parameters[i];
@@ -271,21 +235,24 @@ public class Sigewine {
             args[i] = argInstance;
         }
 
-        log.debug("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length, beanDefinition, clazz.getName(), args);
+        log.debug("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length,
+            beanDefinition, clazz.getName(), args);
         return clazz.cast(constructor.newInstance(args));
     }
 
     /**
-     * Adds a constellation to the Sigewine instance.
+     * Adds a extension to the Sigewine instance.
      *
-     * @param constellation Constellation to add
+     * @param extension Constellation to add
      */
-    public void addConstellation(@NonNull SigewineConstellation constellation) {
-        if (constellations.stream().anyMatch(c -> c.getClass().equals(constellation.getClass()))) {
-            throw new IllegalArgumentException("Constellation " + constellation.getClass().getSimpleName() + " is already registered");
+    public void addExtension(@NonNull SigewineExtension extension) {
+        if (extensions.stream().anyMatch(c -> c.getClass().equals(extension.getClass()))) {
+            throw new IllegalArgumentException("Extension " + extension.getClass().getSimpleName() + " is already"
+                + " registered");
         }
-        log.debug("Adding constellation '{}' with priority '{}'", constellation.getClass().getSimpleName(), constellation.getPriority());
-        constellations.add(constellation);
+        log.debug("Adding extension '{}' with priority '{}'", extension.getClass().getSimpleName(),
+            extension.getPriority());
+        extensions.add(extension);
     }
 
     /**
@@ -303,7 +270,9 @@ public class Sigewine {
         Preconditions.checkNoPrimitiveReturnType(method);
 
         if (isBeanRegistered(beanDefinition)) {
-            throw new IllegalArgumentException("Class " + returnType.getName() + " already registered as " + beanDefinition);
+            if (isBeanRegistered(beanDefinition, true)) {
+                throw new IllegalArgumentException("Class " + returnType.getName() + " already registered as " + beanDefinition);
+            }
         }
 
         log.debug("Registering method bean '{}' of class '{}'", beanDefinition, declaringClass.getName());
@@ -326,7 +295,7 @@ public class Sigewine {
                 }
             }
 
-            return syringe(clazz);
+            return inject(clazz);
         });
         //@formatter:on
 
@@ -372,9 +341,15 @@ public class Sigewine {
             beanInstance = constructor.newInstance(args);
         }
 
-        log.debug("Processing constellations for class bean '{}'", beanDefinition);
-        for (SigewineConstellation constellation : constellations) {
-            beanInstance = constellation.processCreatedBeanInstance(beanInstance, beanDefinition, this);
+        log.debug("Processing extensions for class bean '{}'", beanDefinition);
+        for (SigewineExtension extension : extensions) {
+            var processedBeanInstance = extension.processCreatedBeanInstance(beanInstance, beanDefinition, this);
+            
+            if (processedBeanInstance == null) {
+                throw new IllegalStateException("Extension " + extension.getClass().getName() + " returned null for bean " + beanDefinition);
+            }
+
+            beanInstance = processedBeanInstance;
         }
 
         log.debug("Registering bean instance for class bean '{}' of class '{}'", beanDefinition, beanClass.getName());
@@ -390,7 +365,9 @@ public class Sigewine {
      */
     protected void registerBeanWithInstance(Class<?> clazz, BeanDefinition beanDefinition, Object instance) {
         if (isBeanRegistered(beanDefinition)) {
-            throw new IllegalArgumentException("Class " + instance.getClass().getName() + " already registered as " + beanDefinition);
+            if (isBeanRegistered(beanDefinition, true)) {
+                throw new IllegalArgumentException("Class " + instance.getClass().getName() + " already registered as " + beanDefinition);
+            }
         }
         log.debug("Registering bean '{}' of class '{}'", beanDefinition, clazz.getName());
         singletonBeans.put(beanDefinition, instance);
@@ -403,7 +380,7 @@ public class Sigewine {
      *
      * @return Set of beans that are assignable from the specified class
      */
-    protected Set<Object> getAllBeansThatAreAssignableFrom(Class<?> clazz) {
+    public Set<Object> getAllBeansThatAreAssignableFrom(Class<?> clazz) {
         final var beans = new HashSet<>();
         for (var entry : this.singletonBeans.entrySet()) {
             if (clazz.isAssignableFrom(entry.getValue().getClass())) {
@@ -421,7 +398,19 @@ public class Sigewine {
      * @return True if the bean is already registered, false otherwise
      */
     protected boolean isBeanRegistered(BeanDefinition beanDefinition) {
-        return singletonBeans.entrySet().stream().anyMatch(entry -> entry.getKey().is(beanDefinition));
+        return singletonBeans.entrySet().stream().anyMatch(entry -> entry.getKey().is(beanDefinition, !beanDefinition.getName().isEmpty()));
+    }
+
+    /**
+     * Checks if the bean is already registered.
+     *
+     * @param beanDefinition Bean definition to check
+     * @param namesMustMatch Whether the names must match exactly
+     *
+     * @return True if the bean is already registered, false otherwise
+     */
+    protected boolean isBeanRegistered(BeanDefinition beanDefinition, boolean namesMustMatch) {
+        return singletonBeans.entrySet().stream().anyMatch(entry -> entry.getKey().is(beanDefinition, namesMustMatch));
     }
 
     /**
@@ -433,7 +422,7 @@ public class Sigewine {
      */
     protected Object getRegisteredBean(BeanDefinition beanDefinition) {
         return singletonBeans.entrySet().stream()
-            .filter(entry -> entry.getKey().is(beanDefinition))
+            .filter(entry -> entry.getKey().is(beanDefinition, true))
             .map(Map.Entry::getValue)
             .findFirst()
             .map(beanDefinition.getClazz()::cast)
@@ -441,21 +430,12 @@ public class Sigewine {
     }
 
     /**
-     * Gets all fields of the class and its superclasses.
+     * Registers a bean with an instance.
      *
-     * @param clazz Class to get the fields from
-     *
-     * @return Array of fields
+     * @param beanDefinition Bean definition
+     * @param instance       Instance of the bean
      */
-    protected Field[] getAllFields(Class<?> clazz) {
-        final var fields = new ArrayList<Field>();
-        Class<?> currentClass = clazz;
-
-        while (currentClass != null) {
-            fields.addAll(Arrays.asList(currentClass.getDeclaredFields()));
-            currentClass = currentClass.getSuperclass();
-        }
-
-        return fields.toArray(new Field[0]);
+    public void registerBean(BeanDefinition beanDefinition, Object instance) {
+        registerBeanWithInstance(beanDefinition.getClazz(), beanDefinition, instance);
     }
 }
