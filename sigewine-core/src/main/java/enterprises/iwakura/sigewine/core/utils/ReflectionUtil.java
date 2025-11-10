@@ -6,6 +6,9 @@ import java.util.Arrays;
 
 import lombok.experimental.UtilityClass;
 
+/**
+ * Utility class for reflection-related operations.
+ */
 @UtilityClass
 public class ReflectionUtil {
 

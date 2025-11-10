@@ -18,6 +18,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TypedCollectionExtension extends SigewineExtension {
 
+    /**
+     * Creates a new TypedCollectionExtension with the given priority.
+     *
+     * @param priority the priority of the extension
+     */
     public TypedCollectionExtension(int priority) {
         super(priority);
     }

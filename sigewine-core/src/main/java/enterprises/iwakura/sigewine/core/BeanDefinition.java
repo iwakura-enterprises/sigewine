@@ -123,6 +123,7 @@ public class BeanDefinition {
      * Check if this bean definition is the same as the given one.
      *
      * @param beanDefinition the bean definition to check
+     * @param exactNameMatch whether to require exact name match (true) or allow unnamed beans to match any name (false)
      *
      * @return true if this bean definition is the same as the given one, false otherwise
      */
@@ -162,6 +163,8 @@ public class BeanDefinition {
 
     /**
      * Compute the number of beans required to create this bean.
+     *
+     * @param otherBeanDefinitions the set of other bean definitions to consider when computing the score
      *
      * @return the number of beans required to create this bean
      */

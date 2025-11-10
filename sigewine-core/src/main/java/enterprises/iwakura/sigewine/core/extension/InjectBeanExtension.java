@@ -11,7 +11,6 @@ import enterprises.iwakura.sigewine.core.Sigewine;
 import enterprises.iwakura.sigewine.core.annotations.Bean;
 import enterprises.iwakura.sigewine.core.utils.BeanAccessor;
 import enterprises.iwakura.sigewine.core.utils.ReflectionUtil;
-import enterprises.iwakura.sigewine.core.utils.collections.TypedCollection;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,6 +20,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class InjectBeanExtension extends SigewineExtension {
 
+    /**
+     * Creates a new InjectBeanExtension with specified priority.
+     *
+     * @param priority the priority of the extension
+     */
     public InjectBeanExtension(int priority) {
         super(priority);
     }

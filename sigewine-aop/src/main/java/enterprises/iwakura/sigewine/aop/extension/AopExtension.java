@@ -50,7 +50,6 @@ public class AopExtension extends SigewineExtension {
         methodWrapperMap.put(methodWrapper.getAnnotationClass(), methodWrapper);
     }
 
-    @SneakyThrows
     @Override
     public void processBeans(Sigewine sigewine) {
     }
