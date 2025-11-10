@@ -6,8 +6,9 @@ import enterprises.iwakura.sigewine.core.extension.SigewineExtension;
 import enterprises.iwakura.sigewine.core.extension.TypedCollectionExtension;
 import enterprises.iwakura.sigewine.core.utils.Preconditions;
 import enterprises.iwakura.sigewine.core.utils.collections.TypedCollection;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NonNull;
+import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
@@ -36,7 +37,8 @@ import java.util.*;
  *   <li>Use {@link #inject(Class)} to inject dependencies into a class.</li>
  * </ol>
  */
-@Data
+@Getter
+@Setter
 @Slf4j
 public class Sigewine {
 
@@ -73,6 +75,7 @@ public class Sigewine {
     public Sigewine(SigewineOptions sigewineOptions) {
         this.sigewineOptions = sigewineOptions;
         addInternalExtensions();
+        registerItselfAsBean();
     }
 
     /**
@@ -94,6 +97,16 @@ public class Sigewine {
     protected void addInternalExtensions() {
         addExtension(new TypedCollectionExtension(sigewineOptions.getTypedCollectionExtensionPriority()));
         addExtension(new InjectBeanExtension(sigewineOptions.getInjectBeanExtensionPriority()));
+    }
+
+    /**
+     * Registers the Sigewine instance itself as a bean.
+     */
+    protected void registerItselfAsBean() {
+        if (sigewineOptions.isRegisterItselfAsBean()) {
+            log.debug("Registering current Sigewine instance as a bean");
+            registerBean(BeanDefinition.of(Sigewine.class), this);
+        }
     }
 
     /**

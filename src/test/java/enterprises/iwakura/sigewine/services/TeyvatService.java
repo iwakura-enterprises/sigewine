@@ -6,6 +6,7 @@ import enterprises.iwakura.sigewine.annotations.Transactional;
 import enterprises.iwakura.sigewine.aop.sentry.SentryTransaction;
 import enterprises.iwakura.sigewine.beans.HeavenlyPrinciplesBean;
 import enterprises.iwakura.sigewine.beans.LoggingConfiguration;
+import enterprises.iwakura.sigewine.core.Sigewine;
 import enterprises.iwakura.sigewine.core.annotations.Bean;
 import enterprises.iwakura.sigewine.core.utils.collections.TypedArrayList;
 import enterprises.iwakura.sigewine.entities.BaseEntity;
@@ -27,6 +28,7 @@ public class TeyvatService {
     private final LoggingConfiguration loggingConfiguration; // Will be the info one
     private final BaseDatabaseService databaseService;
     private final HeavenlyPrinciplesBean heavenlyPrinciplesBean;
+    private final Sigewine sigewine;
 
     @Bean
     private final List<BaseEntity> entities = new TypedArrayList<>(BaseEntity.class);

@@ -27,6 +27,12 @@ public class SigewineOptions {
     private int injectBeanExtensionPriority = 500;
 
     /**
+     * Whether to register Sigewine itself as a bean.
+     */
+    @Builder.Default
+    private boolean registerItselfAsBean = true;
+
+    /**
      * Default constructor for {@link SigewineOptions}.
      */
     public SigewineOptions() {

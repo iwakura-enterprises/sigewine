@@ -70,6 +70,7 @@ public class SigewineTest {
         Assertions.assertNotNull(teyvatService.getHeavenlyPrinciplesBean().getHeavenlyPrinciplesRule());
         Assertions.assertNotNull(teyvatService.getHeavenlyPrinciplesBean().getTeyvatServiceAccessor().getBeanInstance());
         assert teyvatService.getHeavenlyPrinciplesBean().getTeyvatServiceAccessor().getBeanInstance() == teyvatService;
+        assert teyvatService.getSigewine() == sigewine;
 
         Assertions.assertNotNull(selfInjectedBean);
         Assertions.assertNotNull(selfInjectedBean.getSelfInjectedBaseClass());
