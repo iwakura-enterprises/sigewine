@@ -42,3 +42,6 @@ bin/
 .DS_Store
 .idea/
 **/build/
+
+sigewine-idea-plugin/.intellijPlatform
+sigewine-idea-plugin/.run
