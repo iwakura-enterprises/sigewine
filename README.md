@@ -110,21 +110,21 @@ constructors.
 
 ## Usage
 
-1. Specify beans using `@RomaritimeBean` annotation.
-2. Inject beans using `@RomaritimeBean` annotation in constructor.
+1. Specify beans using `@Bean` annotation.
+2. Inject beans using `@Bean` annotation in constructor.
 
 <procedure title="Simple example" id="simple-example" collapsible="true" default-state="expanded">
 
 ```java
-// Define a bean with @RomaritimeBean annotation
-@RomaritimeBean
+// Define a bean with @Bean annotation
+@Bean
 public class Config {
 
     private int someValue = 10;
 }
 
 // Define a class that uses the bean
-@RomaritimeBean
+@Bean
 public class SomeService {
 
     private final Config config;
@@ -147,12 +147,12 @@ public static void main(String[] args) {
     sigewine.treatment("your.package.name"); // or specify a class
 
     // Getting the beans
-    SomeService service = sigewine.syringe(SomeService.class);
+    SomeService service = sigewine.inject(SomeService.class);
     service.doSomething(); // Outputs: Config value: 10
 }
 ```
 
-The `Sigewine#treatment()` method scans the specified package for classes and methods annotated with `@RomaritimeBean`
+The `Sigewine#treatment()` method scans the specified package for classes and methods annotated with `@Bean`
 and
 registers them as beans.
 
@@ -160,20 +160,20 @@ registers them as beans.
 
 <procedure title="Method injection" id="method-injection" collapsible="true">
 
-You may create beans using methods annotated with `@RomaritimeBean`. This allows you to creat beans from classes, which
-cannot be annotated with `@RomaritimeBean` directly.
+You may create beans using methods annotated with `@Bean`. This allows you to creat beans from classes, which
+cannot be annotated with `@Bean` directly.
 
 ```java
 public class SomeTreatment {
 
-    @RomaritimeBean
+    @Bean
     public ExternalClass externalClass() {
         return new ExternalClass();
     }
 }
 ```
 
-This will allow you to inject instance of `ExternalClass` as it was annotated with `@RomaritimeBean`. Method classes
+This will allow you to inject instance of `ExternalClass` as it was annotated with `@Bean`. Method classes
 may require other beans as constructor parameters and Sigewine will automatically inject them.
 
 </procedure>
@@ -181,18 +181,18 @@ may require other beans as constructor parameters and Sigewine will automaticall
 <procedure title="Custom named beans" id="custom-named-beans" collapsible="true">
 
 Sometimes you may want to specify a custom name for your bean. You can do this by using the `name` attribute of the
-`@RomaritimeBean` annotation. This is useful when you have multiple beans of the same type and you want to
+`@Bean` annotation. This is useful when you have multiple beans of the same type and you want to
 differentiate them. When using them, you must specify the name in the constructor parameter.
 
 ```java
 public class Configs {
 
-    @RomaritimeBean(name = "customProductionConfig")
+    @Bean(name = "customProductionConfig")
     public Config productionConfig() {
         return new Config();
     }
 
-    @RomaritimeBean(name = "customDevelopmentConfig")
+    @Bean(name = "customDevelopmentConfig")
     public Config developmentConfig() {
         return new Config();
     }
@@ -204,7 +204,7 @@ public class ProductionService {
 
     // Injects the bean with custom name
     public ProductionService(
-            @RomaritimeBean(name = "customProductionConfig") Config config
+            @Bean(name = "customProductionConfig") Config config
     ) {
         this.config = productionConfig;
     }
@@ -216,7 +216,7 @@ public class DevelopmentService {
 
     // Injects the bean with custom name
     public DevelopmentService(
-            @RomaritimeBean(name = "customDevelopmentConfig") Config config
+            @Bean(name = "customDevelopmentConfig") Config config
     ) {
         this.config = config;
     }
@@ -238,7 +238,7 @@ public abstract class BaseService {
 }
 
 // An implementation of the abstract class
-@RomaritimeBean
+@Bean
 public class ConcreteService extends BaseService {
 
     @Override
@@ -247,7 +247,7 @@ public class ConcreteService extends BaseService {
     }
 }
 
-@RomaritimeBean
+@Bean
 public class ServiceConsumer {
 
     private final BaseService service;
@@ -277,19 +277,19 @@ public interface BaseEntity {
 }
 
 // Define player entity
-@RomaritimeBean
+@Bean
 public class PlayerEntity implements BaseEntity {
     // Player specific properties and methods
 }
 
 // Define NPC entity
-@RomaritimeBean
+@Bean
 public class NpcEntity implements BaseEntity {
     // NPC specific properties and methods
 }
 
 // Define a service that uses all BaseEntity beans
-@RomaritimeBean
+@Bean
 @RequiredArgsConstructor
 public class GameWorld {
 
@@ -309,17 +309,17 @@ the AOP-like method interception.
 [AOP subpage](AOP.md).
 
 ```java
-@RomaritimeBean
+@Bean
 @RequiredArgsConstructor
 public class SomeService {
 
-    @RomaritimeBean
+    @Bean
     private SomeService self; // Self-injected bean
 }
 ```
 
 <warning title="Self-injection field">
-    The self-injection field must be annotated with <code>@RomaritimeBean</code> annotation and be <b>non-final</b>.
+    The self-injection field must be annotated with <code>@Bean</code> annotation and be <b>non-final</b>.
 </warning>
 
 > If you self-inject a abstract class or an interface, Sigewine will automatically inject the implementation of that class or interface.
