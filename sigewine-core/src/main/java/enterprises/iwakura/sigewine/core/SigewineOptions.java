@@ -1,7 +1,6 @@
 package enterprises.iwakura.sigewine.core;
 
 import enterprises.iwakura.sigewine.core.extension.InjectBeanExtension;
-import enterprises.iwakura.sigewine.core.extension.TypedCollectionExtension;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,12 +12,6 @@ import lombok.Data;
 @Builder
 @AllArgsConstructor
 public class SigewineOptions {
-
-    /**
-     * The priority for {@link TypedCollectionExtension}
-     */
-    @Builder.Default
-    private int typedCollectionExtensionPriority = 1000;
 
     /**
      * The priority for {@link InjectBeanExtension}

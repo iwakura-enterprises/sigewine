@@ -86,11 +86,11 @@ public final class Preconditions {
      * Checks if the class is annotated with the specified annotation.
      *
      * @param clazz           Class to check
-     * @param romaritimeClass Annotation class to check
+     * @param beanClazz Annotation class to check
      */
-    public static void checkAnnotated(Class<?> clazz, Class<Bean> romaritimeClass) {
-        if (!clazz.isAnnotationPresent(romaritimeClass)) {
-            throw new IllegalArgumentException("Class " + clazz.getName() + " is not annotated with " + romaritimeClass.getName());
+    public static void checkAnnotated(Class<?> clazz, Class<Bean> beanClazz) {
+        if (!clazz.isAnnotationPresent(beanClazz)) {
+            throw new IllegalArgumentException("Class " + clazz.getName() + " is not annotated with " + beanClazz.getName());
         }
     }
 

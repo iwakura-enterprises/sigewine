@@ -3,9 +3,8 @@ package enterprises.iwakura.sigewine.core;
 import enterprises.iwakura.sigewine.core.annotations.Bean;
 import enterprises.iwakura.sigewine.core.extension.InjectBeanExtension;
 import enterprises.iwakura.sigewine.core.extension.SigewineExtension;
-import enterprises.iwakura.sigewine.core.extension.TypedCollectionExtension;
 import enterprises.iwakura.sigewine.core.utils.Preconditions;
-import enterprises.iwakura.sigewine.core.utils.collections.TypedCollection;
+import enterprises.iwakura.sigewine.core.utils.ReflectionUtil;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
@@ -17,6 +16,7 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -55,10 +55,6 @@ public class Sigewine {
      */
     protected final Map<BeanDefinition, Object> singletonBeans = new HashMap<>();
     /**
-     * List of classes that have method beans that need to be initialized later.
-     */
-    protected final List<Class<?>> initializeLaterMethodBeans = new ArrayList<>();
-    /**
      * Cache for method bean declaring classes.
      */
     protected final Map<Class<?>, Object> methodBeanDeclaringClassCache = new HashMap<>();
@@ -95,7 +91,6 @@ public class Sigewine {
      * </p>
      */
     protected void addInternalExtensions() {
-        addExtension(new TypedCollectionExtension(sigewineOptions.getTypedCollectionExtensionPriority()));
         addExtension(new InjectBeanExtension(sigewineOptions.getInjectBeanExtensionPriority()));
     }
 
@@ -126,7 +121,6 @@ public class Sigewine {
      *     <li>Scans for methods annotated with {@link Bean} (or the extension of it) and registers their return values as beans.</li>
      *     <li>Scans for classes annotated with {@link Bean} (or the extension of it) and registers them as beans.</li>
      *     <li>Injects beans into fields annotated by {@link Bean}</li>
-     *     <li>Injects beans into fields of type {@link TypedCollection}.</li>
      * </ol>
      *
      * @param packageName The package name to scan.
@@ -134,7 +128,7 @@ public class Sigewine {
      */
     @SneakyThrows
     public synchronized void scan(String packageName, ClassLoader classLoader) {
-        log.info("Scanning package '{}' for classes annotated with @Romaritime", packageName);
+        log.info("Scanning package '{}' for classes annotated with @Bean", packageName);
 
         ConfigurationBuilder config = new ConfigurationBuilder()
                 .setUrls(ClasspathHelper.forPackage(packageName, classLoader))
@@ -166,7 +160,11 @@ public class Sigewine {
             if (beanDefinition.getMethod() != null) {
                 registerMethodBean(beanDefinition);
             } else {
-                registerClassBean(beanDefinition);
+                if (!isBeanRegistered(beanDefinition)) {
+                    registerClassBean(beanDefinition);
+                } else {
+                    log.debug("Bean '{}' was already registered via method bean, skipping...", beanDefinition);
+                }
             }
         }
 
@@ -178,9 +176,6 @@ public class Sigewine {
                 log.debug("Processing extension '{}' with priority '{}'", extension.getClass().getSimpleName(), extension.getPriority());
                 extension.processBeans(this);
             });
-
-        log.debug("Cleaning bean definitions...");
-        beanDefinitions.forEach(beanDefinition -> beanDefinition.getConstructorParameters().clear());
 
         log.info("Finished scanning package '{}', singleton bean count: '{}'", packageName, singletonBeans.size());
     }
@@ -242,14 +237,30 @@ public class Sigewine {
             if (isBeanRegistered(parameterBeanDefinition)) {
                 argInstance = getRegisteredBean(parameterBeanDefinition);
             } else {
-                throw new IllegalArgumentException("No bean found for parameter '" + parameterName + "' of type '" + parameterType.getName() + "' in class '" + clazz.getName() + "'");
+                if (Collection.class.isAssignableFrom(parameterType)) {
+                    // We are dealing with collections.
+                    // 1. Get the generic type of the collection
+                    // 2. Get all beans of the generic type
+                    // 3. Find out whenever the parameter is a List or a Set
+                    // 4. Create the collection and fill it with the beans
+                    final var genericType = ReflectionUtil.getGenericParameterType(parameter);
+                    final var beansOfGenericType = getAllBeansThatAreAssignableFrom(genericType);
+                    if (List.class.isAssignableFrom(parameterType)) {
+                        argInstance = new ArrayList<>(beansOfGenericType);
+                    } else if (Set.class.isAssignableFrom(parameterType)) {
+                        argInstance = new HashSet<>(beansOfGenericType);
+                    } else {
+                        throw new IllegalArgumentException("Unsupported collection type '" + parameterType.getName() + "' for parameter '" + parameterName + "' in class '" + clazz.getName() + "'");
+                    }
+                } else {
+                    throw new IllegalArgumentException("No bean found for parameter '" + parameterName + "' of type '" + parameterType.getName() + "' in class '" + clazz.getName() + "'");
+                }
             }
 
             args[i] = argInstance;
         }
 
-        log.debug("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length,
-            beanDefinition, clazz.getName(), args);
+        log.debug("Resolved '{}' args for bean '{}' of class '{}', creating instance: '{}'", args.length, beanDefinition, clazz.getName(), args);
         return clazz.cast(constructor.newInstance(args));
     }
 
@@ -277,6 +288,7 @@ public class Sigewine {
     protected void registerMethodBean(BeanDefinition beanDefinition) {
         final var method = beanDefinition.getMethod();
         final var declaringClass = method.getDeclaringClass();
+        final var declaringClassBeanDefinition = BeanDefinition.of(declaringClass);
         final var returnType = method.getReturnType();
 
         Preconditions.checkNoVoidReturnType(method);
@@ -290,27 +302,14 @@ public class Sigewine {
 
         log.debug("Registering method bean '{}' of class '{}'", beanDefinition, declaringClass.getName());
 
-        //@formatter:off
-        final var beanClassInstance = methodBeanDeclaringClassCache.computeIfAbsent(declaringClass, clazz -> {
-            var classBeanDefinition = BeanDefinition.of(clazz);
+        final Object beanClassInstance;
 
-            if (isBeanRegistered(classBeanDefinition)) {
-                return getRegisteredBean(classBeanDefinition);
-            }
-
-            boolean hasNoArgConstructor = Arrays.stream(clazz.getConstructors()).anyMatch(constructor -> constructor.getParameterCount() == 0);
-
-            if (hasNoArgConstructor) {
-                try {
-                    return clazz.getConstructor().newInstance();
-                } catch (Exception exception) {
-                    throw new RuntimeException("Failed to create instance of " + clazz.getName() + " for bean " + beanDefinition + " (no no-args constructor?)", exception);
-                }
-            }
-
-            return inject(clazz);
-        });
-        //@formatter:on
+        if (isBeanRegistered(declaringClassBeanDefinition)) {
+            beanClassInstance = getRegisteredBean(declaringClassBeanDefinition);
+        } else {
+            beanClassInstance = inject(declaringClass);
+            registerBean(declaringClassBeanDefinition, beanClassInstance);
+        }
 
         final var beanInstance = method.invoke(beanClassInstance);
 
@@ -337,21 +336,7 @@ public class Sigewine {
             beanInstance = beanClass.getConstructor().newInstance();
         } else {
             log.debug("Creating bean instance for class bean '{}' with constructor arguments: '{}'", beanDefinition, constructorBeanDefinitions);
-            final var constructor = beanClass.getConstructors()[0];
-            var parameters = constructor.getParameters();
-            var args = new Object[parameters.length];
-
-            for (int i = 0; i < parameters.length; i++) {
-                final var parameterBeanDefinition = constructorBeanDefinitions.get(i);
-                if (isBeanRegistered(parameterBeanDefinition)) {
-                    args[i] = getRegisteredBean(parameterBeanDefinition);
-                } else {
-                    throw new IllegalArgumentException("No bean found for constructor argument '" + parameterBeanDefinition + "' of class '" + beanClass.getName() + "'");
-                }
-            }
-
-            Collections.addAll(beanDefinition.getConstructorParameters(), args);
-            beanInstance = constructor.newInstance(args);
+            beanInstance = inject(beanClass);
         }
 
         log.debug("Processing extensions for class bean '{}'", beanDefinition);
@@ -393,14 +378,16 @@ public class Sigewine {
      *
      * @return Set of beans that are assignable from the specified class
      */
-    public Set<Object> getAllBeansThatAreAssignableFrom(Class<?> clazz) {
+    public <T> Set<T> getAllBeansThatAreAssignableFrom(Class<T> clazz) {
         final var beans = new HashSet<>();
         for (var entry : this.singletonBeans.entrySet()) {
             if (clazz.isAssignableFrom(entry.getValue().getClass())) {
                 beans.add(entry.getValue());
             }
         }
-        return beans;
+
+        //noinspection unchecked
+        return (Set<T>) beans;
     }
 
     /**

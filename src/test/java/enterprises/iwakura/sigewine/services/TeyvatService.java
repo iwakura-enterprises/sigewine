@@ -8,8 +8,8 @@ import enterprises.iwakura.sigewine.beans.HeavenlyPrinciplesBean;
 import enterprises.iwakura.sigewine.beans.LoggingConfiguration;
 import enterprises.iwakura.sigewine.core.Sigewine;
 import enterprises.iwakura.sigewine.core.annotations.Bean;
-import enterprises.iwakura.sigewine.core.utils.collections.TypedArrayList;
 import enterprises.iwakura.sigewine.entities.BaseEntity;
+import enterprises.iwakura.sigewine.extension.ExternalClass;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +29,9 @@ public class TeyvatService {
     private final BaseDatabaseService databaseService;
     private final HeavenlyPrinciplesBean heavenlyPrinciplesBean;
     private final Sigewine sigewine;
+    private final ExternalClass externalClass;
 
-    @Bean
-    private final List<BaseEntity> entities = new TypedArrayList<>(BaseEntity.class);
+    private final List<BaseEntity> entities;
 
     @Bean
     private TeyvatService self;

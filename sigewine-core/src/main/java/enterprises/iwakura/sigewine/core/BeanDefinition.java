@@ -1,6 +1,7 @@
 package enterprises.iwakura.sigewine.core;
 
 import enterprises.iwakura.sigewine.core.annotations.Bean;
+import enterprises.iwakura.sigewine.core.utils.ReflectionUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NonNull;
@@ -22,7 +23,7 @@ import java.util.stream.Stream;
 public class BeanDefinition {
 
     /**
-     * Penalty for abstract beans, interfaces or classes without RomaritimeBean annotation.
+     * Penalty for abstract beans, interfaces or classes without Bean annotation.
      */
     public static final long BEAN_SCORE_PENALTY = 100_000L;
     private static final ThreadLocal<Set<Class<?>>> computingBeanScores = ThreadLocal.withInitial(LinkedHashSet::new);
@@ -46,11 +47,6 @@ public class BeanDefinition {
      * The score of the bean. This is the number of beans required to create this bean.
      */
     private long beanScore = -1;
-
-    /**
-     * The parameters of the constructor of this bean. This is used to create the bean.
-     */
-    private List<Object> constructorParameters = new ArrayList<>();
 
     /**
      * Create a new bean definition.
@@ -178,8 +174,8 @@ public class BeanDefinition {
             if (computingBeanScores.get().contains(clazz)) {
                 String dependencies = String.join(" -> ",
                         computingBeanScores.get().stream()
-                                            .map(Class::getName)
-                                            .toList()
+                            .map(Class::getName)
+                            .toList()
                 ) + " -> " + clazz.getName();
                 throw new IllegalStateException("Circular dependency detected while computing bean score: " + dependencies);
             } else {
@@ -201,7 +197,7 @@ public class BeanDefinition {
                     if (parameters.length == 0) {
                         beanScore = 0;
                     } else {
-                        // Check if the constructor has a RomaritimeBean annotation
+                        // Check if the constructor has a Bean annotation
                         long parameterBeans = parameters.length;
                         for (var parameter : parameters) {
                             if (Modifier.isAbstract(parameter.getType().getModifiers()) || parameter.getType().isInterface()) {
@@ -210,7 +206,11 @@ public class BeanDefinition {
                             }
 
                             final var parameterClass = parameter.getType();
-                            if (!parameterClass.isAnnotationPresent(Bean.class)) {
+                            // Collection parameter, we need to find the generic type
+                            if (Collection.class.isAssignableFrom(parameterClass)) {
+                                var genericTypeClass = ReflectionUtil.getGenericParameterType(parameter);
+                                parameterBeans += sumBeanScoresOfRelatedBeanDefinitions(genericTypeClass, otherBeanDefinitions);
+                            } else if (!parameterClass.isAnnotationPresent(Bean.class)) {
                                 parameterBeans += BEAN_SCORE_PENALTY;
                                 parameterBeans += sumBeanScoresOfRelatedBeanDefinitions(parameterClass, otherBeanDefinitions);
                             } else {
@@ -218,7 +218,7 @@ public class BeanDefinition {
                             }
                         }
 
-                        // No RomaritimeBean annotation, return the number of parameters
+                        // No Bean annotation, return the number of parameters
                         beanScore = parameterBeans;
                     }
                 } else {
@@ -256,17 +256,6 @@ public class BeanDefinition {
         } else {
             throw new IllegalArgumentException("Class " + clazz.getName() + " has more than one constructor");
         }
-    }
-
-    /**
-     * Get the constructor parameter types of this bean.
-     *
-     * @return the constructor parameter types of this bean
-     */
-    public Class<?>[] getConstructorParameterTypes() {
-        return constructorParameters.stream()
-                                    .map(Object::getClass)
-                                    .toArray(Class<?>[]::new);
     }
 
     @Override

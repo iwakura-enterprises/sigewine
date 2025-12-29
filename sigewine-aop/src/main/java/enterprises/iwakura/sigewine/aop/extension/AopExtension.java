@@ -67,15 +67,14 @@ public class AopExtension extends SigewineExtension {
 
             final var sigewineProxy = new SigewineInvocationHandler(methodWrappers, beanInstance);
 
-            return byteBuddy
+            var proxiedClass = byteBuddy
                     .subclass(beanInstance.getClass())
                     .method(ElementMatchers.any()) // Match all methods since proxied bean does not have the methods annotated anymore
                     .intercept(InvocationHandlerAdapter.of(sigewineProxy))
                     .make()
                     .load(beanInstance.getClass().getClassLoader())
-                    .getLoaded()
-                    .getConstructors()[0] // We have already checked that the class has a constructor
-                    .newInstance(beanDefinition.getConstructorParameters().toArray());
+                    .getLoaded();
+            return sigewine.inject(proxiedClass);
         }
 
         // No touching

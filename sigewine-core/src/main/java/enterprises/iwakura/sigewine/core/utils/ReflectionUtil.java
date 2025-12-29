@@ -1,6 +1,9 @@
 package enterprises.iwakura.sigewine.core.utils;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -29,5 +32,22 @@ public class ReflectionUtil {
         }
 
         return fields.toArray(new Field[0]);
+    }
+
+    /**
+     * Gets the generic parameter type of a parameter.
+     *
+     * @param parameter Parameter to get the generic type from
+     *
+     * @return The generic parameter type
+     */
+    public static Class<?> getGenericParameterType(Parameter parameter) {
+        Type[] types = ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments();
+
+        if (types.length != 1) {
+            throw new IllegalArgumentException("Parameter " + parameter.getName() + " has more than one generic type");
+        } else {
+            return (Class<?>) types[0];
+        }
     }
 }

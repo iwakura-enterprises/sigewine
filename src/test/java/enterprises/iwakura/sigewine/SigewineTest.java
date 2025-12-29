@@ -7,6 +7,7 @@ import enterprises.iwakura.sigewine.aop.extension.AopExtension;
 import enterprises.iwakura.sigewine.aop.sentry.SentryTransactionMethodWrapper;
 import enterprises.iwakura.sigewine.beans.BeanizedBean;
 import enterprises.iwakura.sigewine.core.*;
+import enterprises.iwakura.sigewine.entities.AetherEntity;
 import enterprises.iwakura.sigewine.services.DatabaseServerImpl;
 import enterprises.iwakura.sigewine.services.ImplSelfInjectedBean;
 import enterprises.iwakura.sigewine.services.TeyvatService;
@@ -71,6 +72,16 @@ public class SigewineTest {
         Assertions.assertNotNull(teyvatService.getHeavenlyPrinciplesBean().getTeyvatServiceAccessor().getBeanInstance());
         assert teyvatService.getHeavenlyPrinciplesBean().getTeyvatServiceAccessor().getBeanInstance() == teyvatService;
         assert teyvatService.getSigewine() == sigewine;
+        Assertions.assertNotNull(teyvatService.getExternalClass());
+        Assertions.assertNotNull(teyvatService.getExternalClass().getEntities());
+        Assertions.assertEquals(teyvatService.getEntities().size(), teyvatService.getExternalClass().getEntities().size());
+
+        var aetherEntity = (AetherEntity)teyvatService.getEntities().stream()
+            .filter(entity -> entity.getClass() == AetherEntity.class)
+            .findFirst()
+            .orElse(null);
+        Assertions.assertNotNull(aetherEntity);
+        Assertions.assertNotNull(aetherEntity.getPrimordialService());
 
         Assertions.assertNotNull(selfInjectedBean);
         Assertions.assertNotNull(selfInjectedBean.getSelfInjectedBaseClass());
