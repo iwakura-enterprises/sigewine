@@ -97,16 +97,15 @@ constructors.
 - Automatic bean injection
 - Automatic bean scanning
 - Custom bean names
-- Typed array list for bean injection
-- Extensions (Constellations) for additional functionality
+- Injection of List of beans
+- Extensions (Extensions) for additional functionality
 
-<warning title="Limitations">
+## Limitations
 <ul>
-    <li>Cyclic dependencies are not supported.</li>
+    <li>Cyclic dependencies are not supported (an exception will be thrown if circular dependency is detected while scanning).</li>
     <li>No lazy loading.</li>
     <li>All beans are singleton, for now.</li>
 </ul>
-</warning>
 
 ## Usage
 
@@ -267,8 +266,7 @@ public class ServiceConsumer {
 
 <procedure title="Collection of beans" id="collection-of-beans" collapsible="true">
 
-If you have multiple beans that extend a common base class or implement a common interface, you can inject
-them as a collection.
+As of 2.4.0, Sigewine supports injection of collections of beans via constructors.
 
 ```java
 // Define a base entity interface
@@ -294,7 +292,7 @@ public class NpcEntity implements BaseEntity {
 public class GameWorld {
 
     // Injects all beans that extend BaseEntity
-    private final List<BaseEntity> entities = new TypedArrayList<>(BaseEntity.class);
+    private final List<BaseEntity> entities;
 }
 ```
 
@@ -331,20 +329,19 @@ public class SomeService {
 I recommend using Lombok's `@RequiredArgsConstructor` to avoid boilerplate code.
 Keep in mind that you won't be able to specify per-parameter bean names with it.
 
-### Extensions -- Constellations
+### Extensions
 
-Sigewine supports extensions that allows you to process beans when they are registered. They are named <b>
-Constellations</b>.
+Sigewine supports extensions that allows you to process beans when they are registered.
 
 One of the existing implementation is **AOP extension**, that allows you to wrap methods of beans with additional
 functionality. Please, check the [AOP subpage](AOP.md) for more information.
 
-<procedure title="Defining constellation" id="defining-constellation" collapsible="true">
+<procedure title="Defining extension" id="defining-extension" collapsible="true">
 
 ```java
-public class CustomConstellation extends SigewineConstellation {
+public class CustomExtension extends SigewineExtension {
 
-    public CustomConstellation() {
+    public CustomExtension() {
         super(10); // Priority. Smaller values are processed first.
     }
 
@@ -363,13 +360,13 @@ public class CustomConstellation extends SigewineConstellation {
     }
 }
 
-// Registering the constellation
+// Registering the extension
 public static void main(String[] args) {
     // Create instance of Sigewine
     Sigewine sigewine = new Sigewine(new SigewineOptions());
 
-    // Add custom constellation
-    sigewine.addConstellation(new CustomConstellation());
+    // Add custom extension
+    sigewine.addExtension(new CustomExtension());
 
     // Scan for beans in current package
     sigewine.treatment("your.package.name");
