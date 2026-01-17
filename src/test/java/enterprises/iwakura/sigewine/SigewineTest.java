@@ -15,6 +15,8 @@ import enterprises.iwakura.sigewine.services.sentry.SentryServiceThree;
 import io.sentry.Sentry;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.logging.log4j.core.util.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -75,6 +77,8 @@ public class SigewineTest {
         Assertions.assertNotNull(teyvatService.getExternalClass());
         Assertions.assertNotNull(teyvatService.getExternalClass().getEntities());
         Assertions.assertEquals(teyvatService.getEntities().size(), teyvatService.getExternalClass().getEntities().size());
+        Assertions.assertNotNull(teyvatService.getInsideTeyvatClass());
+        Assertions.assertNotNull(teyvatService.getInsideTeyvatClass().getExternalClass());
 
         var aetherEntity = (AetherEntity)teyvatService.getEntities().stream()
             .filter(entity -> entity.getClass() == AetherEntity.class)
@@ -112,7 +116,6 @@ public class SigewineTest {
         final var beanizedBeanLogLevel = beanizedBean.logLevel;
         Assertions.assertEquals(Level.ERROR, beanizedBeanLogLevel, "BeanizedBean log level should be ERROR");
         //@formatter:on
-
 
         int ranTimes = ClassWrappedMethodWrapper.ranTimes;
         teyvatService.someUnannotatedMethod();

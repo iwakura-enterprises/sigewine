@@ -208,7 +208,7 @@ public class BeanDefinition {
                             final var parameterClass = parameter.getType();
                             // Collection parameter, we need to find the generic type
                             if (Collection.class.isAssignableFrom(parameterClass)) {
-                                var genericTypeClass = ReflectionUtil.getGenericParameterType(parameter);
+                                var genericTypeClass = ReflectionUtil.getFirstGenericParameterType(parameter);
                                 parameterBeans += sumBeanScoresOfRelatedBeanDefinitions(genericTypeClass, otherBeanDefinitions);
                             } else if (!parameterClass.isAnnotationPresent(Bean.class)) {
                                 parameterBeans += BEAN_SCORE_PENALTY;

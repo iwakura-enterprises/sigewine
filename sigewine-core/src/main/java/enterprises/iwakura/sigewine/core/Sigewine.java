@@ -16,7 +16,6 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
 
-import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -243,7 +242,7 @@ public class Sigewine {
                     // 2. Get all beans of the generic type
                     // 3. Find out whenever the parameter is a List or a Set
                     // 4. Create the collection and fill it with the beans
-                    final var genericType = ReflectionUtil.getGenericParameterType(parameter);
+                    final var genericType = ReflectionUtil.getFirstGenericParameterType(parameter);
                     final var beansOfGenericType = getAllBeansThatAreAssignableFrom(genericType);
                     if (List.class.isAssignableFrom(parameterType)) {
                         argInstance = new ArrayList<>(beansOfGenericType);

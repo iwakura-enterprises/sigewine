@@ -30,6 +30,7 @@ public class TeyvatService {
     private final HeavenlyPrinciplesBean heavenlyPrinciplesBean;
     private final Sigewine sigewine;
     private final ExternalClass externalClass;
+    private final InsideTeyvatClass insideTeyvatClass;
 
     private final List<BaseEntity> entities;
 
@@ -52,5 +53,13 @@ public class TeyvatService {
     @SentryTransaction(name = "innerMethodName", operation = "Super duper operation")
     public void innerMethod() {
         log.info("This is an inner method");
+    }
+
+    @Bean
+    @Getter
+    @RequiredArgsConstructor
+    public static class InsideTeyvatClass {
+
+        private final ExternalClass externalClass;
     }
 }

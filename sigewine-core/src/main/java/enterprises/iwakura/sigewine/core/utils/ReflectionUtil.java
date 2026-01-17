@@ -41,13 +41,20 @@ public class ReflectionUtil {
      *
      * @return The generic parameter type
      */
-    public static Class<?> getGenericParameterType(Parameter parameter) {
+    public static Class<?> getFirstGenericParameterType(Parameter parameter) {
         Type[] types = ((ParameterizedType) parameter.getParameterizedType()).getActualTypeArguments();
 
         if (types.length != 1) {
             throw new IllegalArgumentException("Parameter " + parameter.getName() + " has more than one generic type");
         } else {
-            return (Class<?>) types[0];
+            var firstType = types[0];
+            if (firstType instanceof Class<?> clazz) {
+                return clazz;
+            } else if (firstType instanceof ParameterizedType parameterizedType) {
+                return (Class<?>) parameterizedType.getRawType();
+            } else {
+                throw new IllegalArgumentException("Cannot determine the generic type of parameter " + parameter.getName());
+            }
         }
     }
 }
