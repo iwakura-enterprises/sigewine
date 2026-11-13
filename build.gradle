@@ -12,7 +12,7 @@ plugins {
 subprojects {
 
     group = 'enterprises.iwakura'
-    version = '2.4.1'
+    version = '2.4.2'
 
     apply plugin: 'java'
     apply plugin: 'java-library'
@@ -88,11 +88,13 @@ subprojects {
     }
 
     signing {
-        useInMemoryPgpKeys(
-                System.getenv("GPG_KEY_ID"),
-                System.getenv("GPG_PRIVATE_KEY"),
-                System.getenv("GPG_PASSWORD")
-        )
+        if (System.getenv("GPG_PRIVATE_KEY")) {
+            useInMemoryPgpKeys(
+                    System.getenv("GPG_KEY_ID"),
+                    System.getenv("GPG_PRIVATE_KEY"),
+                    System.getenv("GPG_PASSWORD")
+            )
+        }
     }
 
     java {
