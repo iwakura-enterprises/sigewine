@@ -58,14 +58,22 @@ public class InjectBeanExtension extends SigewineExtension {
 
     @SneakyThrows
     private static void injectBean(Sigewine sigewine, Field field, Object bean) {
-        var specifiedBeanName = Optional.ofNullable(field.getAnnotation(Bean.class).name()).orElse("");
-        log.debug("Injecting bean into field '{}' of class '{}' with name '{}' in class '{}'",
-            field.getName(), field.getType(), specifiedBeanName, bean.getClass().getName()
-        );
-        var injectedBean = sigewine.inject(field.getType(), specifiedBeanName);
         var wasAccessible = field.canAccess(bean);
         field.setAccessible(true);
-        field.set(bean, injectedBean);
+        var specifiedBeanName = Optional.ofNullable(field.getAnnotation(Bean.class).name()).orElse("");
+
+        if (field.get(bean) != null) {
+            log.debug("Ignoring @Bean injection into field '{}' of class '{}' with name '{}' in class '{}' becuase the field already has value",
+                field.getName(), field.getType(), specifiedBeanName, bean.getClass().getName()
+            );
+        } else {
+            log.debug("Injecting bean into field '{}' of class '{}' with name '{}' in class '{}'",
+                field.getName(), field.getType(), specifiedBeanName, bean.getClass().getName()
+            );
+            var injectedBean = sigewine.inject(field.getType(), specifiedBeanName);
+            field.set(bean, injectedBean);
+        }
+
         field.setAccessible(wasAccessible);
     }
 
